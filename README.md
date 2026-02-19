@@ -2,15 +2,22 @@
 
 ## Backend
 
-```
+Requires [Go 1.22+](https://go.dev/dl/).
+
+```bash
 cd backend
-python3 -m venv .venv
-source .venv/bin/activate # For windows use: source venv\Scripts\activate
-pip install pipenv
-pipenv install --dev
-pipenv run python manage.py migrate
-pipenv run python manage.py runserver
-deactivate # To kill venv
+
+# Run the server (development)
+make run
+
+# Or without Make:
+go run cmd/server/main.go
+
+# Build a compiled binary
+make build        # outputs to backend/bin/server
+
+# Run the compiled binary
+./bin/server
 ```
 
 ## Frontend
