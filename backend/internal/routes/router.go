@@ -3,17 +3,18 @@ package routes
 import (
 	"net/http"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/martinzha28/bridge-platform/backend/internal/handlers"
+	"github.com/redis/go-redis/v9"
 )
 
-func SetupRouter() http.Handler {
+func SetupRouter(db *pgxpool.Pool, rdb *redis.Client) http.Handler {
 	mux := http.NewServeMux()
 
-	// Health check
-	mux.HandleFunc("GET /health", handlers.HealthCheck)
+	h := handlers.New(db, rdb)
 
-	// API routes
-	mux.HandleFunc("GET /api/v1/", handlers.APIRoot)
+	mux.HandleFunc("GET /health", h.HealthCheck)
+	mux.HandleFunc("GET /api/v1/", h.APIRoot)
 
 	return mux
 }

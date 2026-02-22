@@ -1,23 +1,37 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
-	"os"
 
+	"github.com/martinzha28/bridge-platform/backend/internal/config"
+	"github.com/martinzha28/bridge-platform/backend/internal/database"
 	"github.com/martinzha28/bridge-platform/backend/internal/routes"
 )
 
 func main() {
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
+	ctx := context.Background()
+	cfg := config.Load()
+
+	db, err := database.NewPostgres(ctx, cfg.DatabaseURL)
+	if err != nil {
+		log.Fatalf("Failed to connect to postgres: %v", err)
 	}
+	defer db.Close()
+	log.Println("Connected to PostgreSQL")
 
-	router := routes.SetupRouter()
+	rdb, err := database.NewRedis(ctx, cfg.RedisAddr)
+	if err != nil {
+		log.Fatalf("Failed to connect to redis: %v", err)
+	}
+	defer rdb.Close()
+	log.Println("Connected to Redis")
 
-	log.Printf("Server starting on :%s", port)
-	if err := http.ListenAndServe(":"+port, router); err != nil {
+	router := routes.SetupRouter(db, rdb)
+
+	log.Printf("Server starting on :%s", cfg.Port)
+	if err := http.ListenAndServe(":"+cfg.Port, router); err != nil {
 		log.Fatalf("Server failed to start: %v", err)
 	}
 }
