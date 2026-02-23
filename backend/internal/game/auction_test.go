@@ -2,8 +2,15 @@ package game
 
 import "testing"
 
+func must(t *testing.T, err error) {
+	t.Helper()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestAuctionSimpleBidding(t *testing.T) {
-	// N opens 1H, everyone passes -> contract 1H by North
+	// N: 1H - P - P - P -> contract 1H by North
 	a := NewAuction(North)
 
 	calls := []struct {
@@ -64,7 +71,7 @@ func TestAuctionPassedOut(t *testing.T) {
 }
 
 func TestAuctionCompetitiveBidding(t *testing.T) {
-	// N:1C - 1S - 2H - P - 4H - P - P - P -> 4H by North (first to bid hearts on NS side)
+	// N: 1C - 1S - 2H - P - 4H - P - P - P -> 4H by North (first to bid hearts on NS side)
 	a := NewAuction(North)
 
 	calls := []struct {
@@ -105,7 +112,7 @@ func TestAuctionCompetitiveBidding(t *testing.T) {
 }
 
 func TestAuctionDoubled(t *testing.T) {
-	// N:1NT - X - P - P - P -> 1NT doubled by North
+	// N: 1NT - X - P - P - P -> 1NT doubled by North
 	a := NewAuction(North)
 
 	calls := []struct {
@@ -140,7 +147,7 @@ func TestAuctionDoubled(t *testing.T) {
 }
 
 func TestAuctionRedoubled(t *testing.T) {
-	// N:1H - X - XX - P - P - P -> 1H redoubled by North
+	// N: 1H - X - XX - P - P - P -> 1H redoubled by North
 	a := NewAuction(North)
 
 	calls := []struct {
@@ -170,7 +177,7 @@ func TestAuctionRedoubled(t *testing.T) {
 }
 
 func TestAuctionNewBidCancelsDouble(t *testing.T) {
-	// N:1H - X - 2H - P - P - P -> double is cancelled by the new bid
+	// N: 1H - X - 2H - P - P - P -> double is cancelled by the new bid
 	a := NewAuction(North)
 
 	must(t, a.MakeCall(North, BidCall(1, HeartStrain)))
@@ -236,7 +243,7 @@ func TestAuctionDoubleOwnBid(t *testing.T) {
 	must(t, a.MakeCall(North, BidCall(1, ClubStrain)))
 	must(t, a.MakeCall(East, passCall))
 
-	// South is North's partner — can't double own side's bid
+	// South is North's partner -> can't double own side's bid
 	err := a.MakeCall(South, doubleCall)
 	if err == nil {
 		t.Error("expected error: cannot double own side's bid")
@@ -307,7 +314,7 @@ func TestAuctionGrandSlam(t *testing.T) {
 }
 
 func TestAuctionDoubleAfterPassOverBid(t *testing.T) {
-	// N:1H - P - P - X -> West can double (opponent's bid, passes don't change that)
+	// N: 1H - P - P - X -> West can double (opponent's bid, passes don't change that)
 	a := NewAuction(North)
 	must(t, a.MakeCall(North, BidCall(1, HeartStrain)))
 	must(t, a.MakeCall(East, passCall))
@@ -318,9 +325,132 @@ func TestAuctionDoubleAfterPassOverBid(t *testing.T) {
 	}
 }
 
-func must(t *testing.T, err error) {
-	t.Helper()
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+func TestAuctionEqualBidNotAllowed(t *testing.T) {
+	a := NewAuction(North)
+	must(t, a.MakeCall(North, BidCall(2, HeartStrain)))
+
+	err := a.MakeCall(East, BidCall(2, HeartStrain))
+	if err == nil {
+		t.Error("expected error: 2H is not higher than 2H")
+	}
+}
+
+func TestAuctionNewBidCancelsRedouble(t *testing.T) {
+	// N: 1H X - XX - 2S - P - P - P -> 2S not redoubled
+	a := NewAuction(North)
+	must(t, a.MakeCall(North, BidCall(1, HeartStrain)))
+	must(t, a.MakeCall(East, doubleCall))
+	must(t, a.MakeCall(South, redoubleCall))
+	must(t, a.MakeCall(West, BidCall(2, SpadeStrain)))
+	must(t, a.MakeCall(North, passCall))
+	must(t, a.MakeCall(East, passCall))
+	must(t, a.MakeCall(South, passCall))
+
+	contract, ok := a.Contract()
+	if !ok {
+		t.Fatal("Contract() should succeed")
+	}
+	if contract.Doubled {
+		t.Error("contract should not be doubled (new bid cancels)")
+	}
+	if contract.Redoubled {
+		t.Error("contract should not be redoubled (new bid cancels)")
+	}
+	if contract.Level != 2 || contract.Strain != SpadeStrain {
+		t.Errorf("contract = %d%s, want 2S", contract.Level, contract.Strain)
+	}
+	if contract.Declarer != West {
+		t.Errorf("declarer = %v, want West", contract.Declarer)
+	}
+}
+
+func TestAuctionContractMidAuction(t *testing.T) {
+	a := NewAuction(North)
+	must(t, a.MakeCall(North, BidCall(1, ClubStrain)))
+
+	// Auction is not finished yet
+	if a.IsFinished() {
+		t.Error("auction should not be finished mid-bidding")
+	}
+	if _, ok := a.Contract(); ok {
+		t.Error("Contract() should return false mid-auction")
+	}
+}
+
+func TestAuctionTwoPassesDontEnd(t *testing.T) {
+	// N: 1H P - P -> only 2 passes, auction continues
+	a := NewAuction(North)
+	must(t, a.MakeCall(North, BidCall(1, HeartStrain)))
+	must(t, a.MakeCall(East, passCall))
+	must(t, a.MakeCall(South, passCall))
+
+	if a.IsFinished() {
+		t.Error("auction should not be finished after only 2 passes")
+	}
+
+	// West can still bid
+	if err := a.MakeCall(West, BidCall(2, ClubStrain)); err != nil {
+		t.Errorf("West should be able to bid: %v", err)
+	}
+}
+
+func TestAuctionBidderRedoublesOwnBid(t *testing.T) {
+	// N: 1H - X - P - P - XX -> North redoubles their own doubled bid
+	a := NewAuction(North)
+	must(t, a.MakeCall(North, BidCall(1, HeartStrain)))
+	must(t, a.MakeCall(East, doubleCall))
+	must(t, a.MakeCall(South, passCall))
+	must(t, a.MakeCall(West, passCall))
+
+	// North redoubles (their side's bid was doubled)
+	if err := a.MakeCall(North, redoubleCall); err != nil {
+		t.Errorf("bidder should be able to redouble their own doubled bid: %v", err)
+	}
+
+	must(t, a.MakeCall(East, passCall))
+	must(t, a.MakeCall(South, passCall))
+	must(t, a.MakeCall(West, passCall))
+
+	contract, ok := a.Contract()
+	if !ok {
+		t.Fatal("Contract() should succeed")
+	}
+	if !contract.Redoubled {
+		t.Error("contract should be redoubled")
+	}
+	if contract.Declarer != North {
+		t.Errorf("declarer = %v, want North", contract.Declarer)
+	}
+}
+
+func TestAuctionDoubleAfterRedoubleCancelledByNewBid(t *testing.T) {
+	// N: 1H - X - XX - 2S - X - P - P - P -> double is legal after redouble cancelled by 2S
+	a := NewAuction(North)
+	must(t, a.MakeCall(North, BidCall(1, HeartStrain)))
+	must(t, a.MakeCall(East, doubleCall))
+	must(t, a.MakeCall(South, redoubleCall))
+	must(t, a.MakeCall(West, BidCall(2, SpadeStrain)))
+
+	// North doubles West's 2S (opponent's bid)
+	if err := a.MakeCall(North, doubleCall); err != nil {
+		t.Errorf("should be able to double after redouble cancelled by new bid: %v", err)
+	}
+
+	must(t, a.MakeCall(East, passCall))
+	must(t, a.MakeCall(South, passCall))
+	must(t, a.MakeCall(West, passCall))
+
+	contract, ok := a.Contract()
+	if !ok {
+		t.Fatal("Contract() should succeed")
+	}
+	if !contract.Doubled {
+		t.Error("contract should be doubled")
+	}
+	if contract.Redoubled {
+		t.Error("contract should not be redoubled")
+	}
+	if contract.Level != 2 || contract.Strain != SpadeStrain {
+		t.Errorf("contract = %d%s, want 2S", contract.Level, contract.Strain)
 	}
 }

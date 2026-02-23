@@ -143,6 +143,7 @@ func (a *Auction) MakeCall(dir Direction, call Call) error {
 	switch call.Type {
 	case Pass:
 		a.passCount++
+
 	case Bid:
 		a.lastBid = &Call{Type: Bid, Level: call.Level, Strain: call.Strain}
 		a.lastBidBy = dir
@@ -150,9 +151,11 @@ func (a *Auction) MakeCall(dir Direction, call Call) error {
 		a.redoubled = false
 		a.bidMade = true
 		a.passCount = 0
+
 	case Double:
 		a.doubled = true
 		a.passCount = 0
+
 	case Redouble:
 		a.redoubled = true
 		a.passCount = 0
@@ -231,7 +234,6 @@ func (a *Auction) Contract() (Contract, bool) {
 	declarerSide := a.lastBidBy
 	strain := a.lastBid.Strain
 
-	// Find the first player on the declaring side who bid this strain
 	declarer := declarerSide
 	caller := a.Dealer
 	for _, c := range a.Calls {
@@ -251,7 +253,6 @@ func (a *Auction) Contract() (Contract, bool) {
 	}, true
 }
 
-// ToNotation returns the auction as a standard string: "1H P 2C P 2H P 4H P P P"
 func (a *Auction) ToNotation() string {
 	parts := make([]string, len(a.Calls))
 	for i, c := range a.Calls {
