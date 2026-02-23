@@ -11,31 +11,31 @@ type Card uint8
 const NumCards = 52
 
 const (
-	Clubs    Suit = 0
-	Diamonds Suit = 1
-	Hearts   Suit = 2
-	Spades   Suit = 3
-
-	NumSuits = 4
+	Clubs Suit = iota
+	Diamonds
+	Hearts
+	Spades
 )
+
+const NumSuits = 4
 
 const (
-	Two   Rank = 0
-	Three Rank = 1
-	Four  Rank = 2
-	Five  Rank = 3
-	Six   Rank = 4
-	Seven Rank = 5
-	Eight Rank = 6
-	Nine  Rank = 7
-	Ten   Rank = 8
-	Jack  Rank = 9
-	Queen Rank = 10
-	King  Rank = 11
-	Ace   Rank = 12
-
-	NumRanks = 13
+	Two Rank = iota
+	Three
+	Four
+	Five
+	Six
+	Seven
+	Eight
+	Nine
+	Ten
+	Jack
+	Queen
+	King
+	Ace
 )
+
+const NumRanks = 13
 
 var suitNames = [NumSuits]string{"Clubs", "Diamonds", "Hearts", "Spades"}
 var suitLetters = [NumSuits]byte{'C', 'D', 'H', 'S'}

@@ -38,20 +38,20 @@ type Auction struct {
 }
 
 const (
-	ClubStrain    Strain = 0
-	DiamondStrain Strain = 1
-	HeartStrain   Strain = 2
-	SpadeStrain   Strain = 3
-	NoTrump       Strain = 4
-
-	NumStrains = 5
+	ClubStrain Strain = iota
+	DiamondStrain
+	HeartStrain
+	SpadeStrain
+	NoTrump
 )
 
+const NumStrains = 5
+
 const (
-	Pass     CallType = 0
-	Bid      CallType = 1
-	Double   CallType = 2
-	Redouble CallType = 3
+	Pass CallType = iota
+	Bid
+	Double
+	Redouble
 )
 
 var strainLetters = [NumStrains]string{"C", "D", "H", "S", "NT"}

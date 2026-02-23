@@ -70,6 +70,79 @@ func TestAuctionPassedOut(t *testing.T) {
 	}
 }
 
+func TestAuctionPassedOutAllDealers(t *testing.T) {
+	for _, dealer := range []Direction{North, East, South, West} {
+		t.Run(dealer.String(), func(t *testing.T) {
+			a := NewAuction(dealer)
+			dir := dealer
+			for range NumDirections {
+				must(t, a.MakeCall(dir, passCall))
+				dir = dir.Next()
+			}
+
+			if !a.IsFinished() {
+				t.Error("auction should be finished")
+			}
+			if !a.PassedOut() {
+				t.Error("auction should be passed out")
+			}
+			if _, ok := a.Contract(); ok {
+				t.Error("should not have a contract")
+			}
+		})
+	}
+}
+
+func TestAuctionPassedOutNotation(t *testing.T) {
+	a := NewAuction(North)
+	for _, dir := range []Direction{North, East, South, West} {
+		must(t, a.MakeCall(dir, passCall))
+	}
+
+	if got := a.ToNotation(); got != "P P P P" {
+		t.Errorf("notation = %q, want %q", got, "P P P P")
+	}
+}
+
+func TestAuctionThreePassesNotPassedOut(t *testing.T) {
+	a := NewAuction(North)
+	must(t, a.MakeCall(North, passCall))
+	must(t, a.MakeCall(East, passCall))
+	must(t, a.MakeCall(South, passCall))
+
+	if a.IsFinished() {
+		t.Error("3 passes without a bid should not finish the auction")
+	}
+	if a.PassedOut() {
+		t.Error("should not be passed out with only 3 passes")
+	}
+
+	// Fourth pass ends it
+	must(t, a.MakeCall(West, passCall))
+	if !a.PassedOut() {
+		t.Error("4 passes should be passed out")
+	}
+}
+
+func TestAuctionPassedOutAfterBidRequiresThreePasses(t *testing.T) {
+	a := NewAuction(North)
+	must(t, a.MakeCall(North, BidCall(1, ClubStrain)))
+	must(t, a.MakeCall(East, passCall))
+	must(t, a.MakeCall(South, passCall))
+
+	if a.IsFinished() {
+		t.Error("only 2 passes after a bid should not finish")
+	}
+
+	must(t, a.MakeCall(West, passCall))
+	if !a.IsFinished() {
+		t.Error("3 passes after a bid should finish")
+	}
+	if a.PassedOut() {
+		t.Error("should not be passed out when a bid was made")
+	}
+}
+
 func TestAuctionCompetitiveBidding(t *testing.T) {
 	// N: 1C - 1S - 2H - P - 4H - P - P - P -> 4H by North (first to bid hearts on NS side)
 	a := NewAuction(North)

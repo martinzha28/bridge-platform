@@ -6,20 +6,20 @@ type Direction uint8
 type Vulnerability uint8
 
 const (
-	VulNone Vulnerability = 0
-	VulNS   Vulnerability = 1
-	VulEW   Vulnerability = 2
-	VulBoth Vulnerability = 3
+	VulNone Vulnerability = iota
+	VulNS
+	VulEW
+	VulBoth
 )
 
 const (
-	North Direction = 0
-	East  Direction = 1
-	South Direction = 2
-	West  Direction = 3
-
-	NumDirections = 4
+	North Direction = iota
+	East
+	South
+	West
 )
+
+const NumDirections = 4
 
 var directionNames = [NumDirections]string{"North", "East", "South", "West"}
 var directionLetters = [NumDirections]byte{'N', 'E', 'S', 'W'}
