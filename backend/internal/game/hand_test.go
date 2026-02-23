@@ -146,17 +146,93 @@ func TestHandPBNRoundTrip(t *testing.T) {
 	}
 }
 
-func TestPBNToHandInvalid(t *testing.T) {
-	invalids := []string{
-		"AKQ",               // only 1 part
-		"AKQ.KJ3.T98",       // only 3 parts
-		"AKQ.KJ3.T98.Q65.2", // 5 parts
-		"AKX.KJ3.T98.Q65",   // invalid rank 'X'
-		"AAK.KJ3.T98.Q65",   // duplicate card
+func TestPBNToHandVoids(t *testing.T) {
+	tests := []struct {
+		pbn       string
+		voidSuits []Suit
+	}{
+		{"AKQ.AKQ.AKQ.AKQJ", nil},
+		{".AKQJT98765432..", []Suit{Spades, Diamonds, Clubs}},
+		{"AKQJT98765432...", []Suit{Hearts, Diamonds, Clubs}},
+		{"...AKQJT98765432", []Suit{Spades, Hearts, Diamonds}},
+		{"..AKQJT98765432.", []Suit{Spades, Hearts, Clubs}},
 	}
-	for _, s := range invalids {
-		if _, ok := PBNToHand(s); ok {
-			t.Errorf("PBNToHand(%q) should have failed", s)
+
+	for _, tt := range tests {
+		h, ok := PBNToHand(tt.pbn)
+		if !ok {
+			t.Errorf("PBNToHand(%q) failed", tt.pbn)
+			continue
+		}
+		if h.Len() != 13 {
+			t.Errorf("PBNToHand(%q).Len() = %d, want 13", tt.pbn, h.Len())
+		}
+		for _, suit := range tt.voidSuits {
+			if h.HasSuit(suit) {
+				t.Errorf("PBNToHand(%q) should be void in %v", tt.pbn, suit)
+			}
+		}
+	}
+}
+
+func TestPBNToHandSpecificCards(t *testing.T) {
+	h, ok := PBNToHand("AK.QJ.T9.8765432")
+	if !ok {
+		t.Fatal("PBNToHand failed")
+	}
+
+	hasCards := []Card{
+		NewCard(Spades, Ace), NewCard(Spades, King),
+		NewCard(Hearts, Queen), NewCard(Hearts, Jack),
+		NewCard(Diamonds, Ten), NewCard(Diamonds, Nine),
+		NewCard(Clubs, Eight), NewCard(Clubs, Seven),
+	}
+	for _, c := range hasCards {
+		if !h.Has(c) {
+			t.Errorf("hand should contain %v", c)
+		}
+	}
+
+	missingCards := []Card{
+		NewCard(Spades, Queen),
+		NewCard(Hearts, Ace),
+		NewCard(Diamonds, Ace),
+		NewCard(Clubs, Ace),
+	}
+	for _, c := range missingCards {
+		if h.Has(c) {
+			t.Errorf("hand should not contain %v", c)
+		}
+	}
+}
+
+func TestPBNToHandInvalid(t *testing.T) {
+	invalids := []struct {
+		pbn    string
+		reason string
+	}{
+		{"AKQ", "only 1 part"},
+		{"AKQ.KJ3.T98", "only 3 parts"},
+		{"AKQ.KJ3.T98.Q65.2", "5 parts"},
+		{"AKX.KJ3.T98.Q65", "invalid rank X"},
+		{"AAK.KJ3.T98.Q65", "duplicate card within suit"},
+		{"", "empty string"},
+		{"...", "all voids (valid — 0 cards)"},
+	}
+	for _, tt := range invalids {
+		h, ok := PBNToHand(tt.pbn)
+		// "..." is actually valid (0 cards), the others should fail
+		if tt.pbn == "..." {
+			if !ok {
+				t.Errorf("PBNToHand(%q) should succeed: %s", tt.pbn, tt.reason)
+			}
+			if h.Len() != 0 {
+				t.Errorf("PBNToHand(%q).Len() = %d, want 0", tt.pbn, h.Len())
+			}
+			continue
+		}
+		if ok {
+			t.Errorf("PBNToHand(%q) should have failed (%s)", tt.pbn, tt.reason)
 		}
 	}
 }
