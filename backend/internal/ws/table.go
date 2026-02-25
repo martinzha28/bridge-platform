@@ -31,6 +31,12 @@ func (t *Table) Sit(c *Client, dir game.Direction) error {
 		return fmt.Errorf("seat %v is taken", dir)
 	}
 
+	for d, player := range t.players {
+		if player == c {
+			return fmt.Errorf("already seated at %v", d)
+		}
+	}
+
 	t.players[dir] = c
 	return nil
 }
