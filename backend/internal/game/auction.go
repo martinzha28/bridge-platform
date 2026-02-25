@@ -38,20 +38,20 @@ type Auction struct {
 }
 
 const (
-	ClubStrain    Strain = 0
-	DiamondStrain Strain = 1
-	HeartStrain   Strain = 2
-	SpadeStrain   Strain = 3
-	NoTrump       Strain = 4
-
-	NumStrains = 5
+	ClubStrain Strain = iota
+	DiamondStrain
+	HeartStrain
+	SpadeStrain
+	NoTrump
 )
 
+const NumStrains = 5
+
 const (
-	Pass     CallType = 0
-	Bid      CallType = 1
-	Double   CallType = 2
-	Redouble CallType = 3
+	Pass CallType = iota
+	Bid
+	Double
+	Redouble
 )
 
 var strainLetters = [NumStrains]string{"C", "D", "H", "S", "NT"}
@@ -194,7 +194,6 @@ func (a *Auction) validateCall(call Call) error {
 		if a.doubled || a.redoubled {
 			return fmt.Errorf("cannot double: already doubled")
 		}
-		// Can only double an opponent's bid
 		if a.isSameSide(a.turn, a.lastBidBy) {
 			return fmt.Errorf("cannot double your own side's bid")
 		}
@@ -207,7 +206,6 @@ func (a *Auction) validateCall(call Call) error {
 		if a.redoubled {
 			return fmt.Errorf("cannot redouble: already redoubled")
 		}
-		// Can only redouble the opponent's double (i.e., your side's bid was doubled)
 		if !a.isSameSide(a.turn, a.lastBidBy) {
 			return fmt.Errorf("cannot redouble: the double is on the opponent's bid")
 		}
@@ -251,6 +249,29 @@ func (a *Auction) Contract() (Contract, bool) {
 		Redoubled: a.redoubled,
 		Declarer:  declarer,
 	}, true
+}
+
+func ParseCall(s string) (Call, bool) {
+	s = strings.ToUpper(s)
+	switch s {
+	case "P", "PASS":
+		return passCall, true
+	case "X", "DBL":
+		return doubleCall, true
+	case "XX", "RDBL":
+		return redoubleCall, true
+	}
+
+	if len(s) < 2 || s[0] < '1' || s[0] > '7' {
+		return Call{}, false
+	}
+
+	level := uint8(s[0] - '0')
+	strain, ok := ParseStrain(s[1:])
+	if !ok {
+		return Call{}, false
+	}
+	return BidCall(level, strain), true
 }
 
 func (a *Auction) ToNotation() string {

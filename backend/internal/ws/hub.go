@@ -1,0 +1,75 @@
+package ws
+
+import (
+	"crypto/rand"
+	"encoding/hex"
+	"log"
+	"net/http"
+	"sync"
+
+	"github.com/gorilla/websocket"
+)
+
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
+}
+
+type Hub struct {
+	mu     sync.Mutex
+	tables map[string]*Table
+}
+
+func NewHub() *Hub {
+	return &Hub{
+		tables: make(map[string]*Table),
+	}
+}
+
+func (h *Hub) CreateTable() *Table {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	id := generateTableID()
+	t := NewTable(id)
+	h.tables[id] = t
+	return t
+}
+
+func (h *Hub) GetTable(id string) (*Table, bool) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	t, ok := h.tables[id]
+	return t, ok
+}
+
+func (h *Hub) RemoveTable(id string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	delete(h.tables, id)
+}
+
+// HandleUpgrade upgrades an HTTP connection to a WebSocket and
+// starts the client read/write pumps.
+func (h *Hub) HandleUpgrade(w http.ResponseWriter, r *http.Request) {
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Printf("websocket upgrade error: %v", err)
+		return
+	}
+
+	client := NewClient(h, conn)
+	go client.writePump()
+	go client.readPump()
+}
+
+func generateTableID() string {
+	b := make([]byte, 4)
+	rand.Read(b)
+	return hex.EncodeToString(b)
+}

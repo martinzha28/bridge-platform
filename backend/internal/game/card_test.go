@@ -48,11 +48,95 @@ func TestParseCard(t *testing.T) {
 	}
 }
 
+func TestParseCardCaseInsensitive(t *testing.T) {
+	tests := []struct {
+		input string
+		want  Card
+	}{
+		{"sa", NewCard(Spades, Ace)},
+		{"hk", NewCard(Hearts, King)},
+		{"dq", NewCard(Diamonds, Queen)},
+		{"cj", NewCard(Clubs, Jack)},
+		{"St", NewCard(Spades, Ten)},
+	}
+	for _, tt := range tests {
+		got, ok := ParseCard(tt.input)
+		if !ok {
+			t.Errorf("ParseCard(%q) failed", tt.input)
+			continue
+		}
+		if got != tt.want {
+			t.Errorf("ParseCard(%q) = %v, want %v", tt.input, got, tt.want)
+		}
+	}
+}
+
 func TestParseCardInvalid(t *testing.T) {
-	invalids := []string{"", "A", "XY", "ZZ", "S1", "XX"}
+	invalids := []string{"", "A", "XY", "ZZ", "S1", "XX", "ABC", "S"}
 	for _, s := range invalids {
 		if _, ok := ParseCard(s); ok {
 			t.Errorf("ParseCard(%q) should have failed", s)
+		}
+	}
+}
+
+func TestParseSuit(t *testing.T) {
+	tests := []struct {
+		input byte
+		want  Suit
+		ok    bool
+	}{
+		{'C', Clubs, true},
+		{'D', Diamonds, true},
+		{'H', Hearts, true},
+		{'S', Spades, true},
+		{'c', Clubs, true},
+		{'d', Diamonds, true},
+		{'h', Hearts, true},
+		{'s', Spades, true},
+		{'X', 0, false},
+		{'1', 0, false},
+	}
+	for _, tt := range tests {
+		got, ok := ParseSuit(tt.input)
+		if ok != tt.ok {
+			t.Errorf("ParseSuit(%q) ok = %v, want %v", tt.input, ok, tt.ok)
+			continue
+		}
+		if ok && got != tt.want {
+			t.Errorf("ParseSuit(%q) = %v, want %v", tt.input, got, tt.want)
+		}
+	}
+}
+
+func TestParseRank(t *testing.T) {
+	tests := []struct {
+		input byte
+		want  Rank
+		ok    bool
+	}{
+		{'2', Two, true},
+		{'9', Nine, true},
+		{'T', Ten, true},
+		{'t', Ten, true},
+		{'J', Jack, true},
+		{'j', Jack, true},
+		{'Q', Queen, true},
+		{'K', King, true},
+		{'A', Ace, true},
+		{'a', Ace, true},
+		{'1', 0, false},
+		{'0', 0, false},
+		{'X', 0, false},
+	}
+	for _, tt := range tests {
+		got, ok := ParseRank(tt.input)
+		if ok != tt.ok {
+			t.Errorf("ParseRank(%q) ok = %v, want %v", tt.input, ok, tt.ok)
+			continue
+		}
+		if ok && got != tt.want {
+			t.Errorf("ParseRank(%q) = %v, want %v", tt.input, got, tt.want)
 		}
 	}
 }

@@ -3,6 +3,7 @@ module github.com/martinzha28/bridge-platform/backend
 go 1.25.5
 
 require (
+	github.com/gorilla/websocket v1.5.3
 	github.com/jackc/pgx/v5 v5.8.0
 	github.com/redis/go-redis/v9 v9.18.0
 )

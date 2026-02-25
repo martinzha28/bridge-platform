@@ -8,6 +8,7 @@ import (
 	"github.com/martinzha28/bridge-platform/backend/internal/config"
 	"github.com/martinzha28/bridge-platform/backend/internal/database"
 	"github.com/martinzha28/bridge-platform/backend/internal/routes"
+	"github.com/martinzha28/bridge-platform/backend/internal/ws"
 )
 
 func main() {
@@ -28,7 +29,8 @@ func main() {
 	defer rdb.Close()
 	log.Println("Connected to Redis")
 
-	router := routes.SetupRouter(db, rdb)
+	hub := ws.NewHub()
+	router := routes.SetupRouter(db, rdb, hub)
 
 	log.Printf("Server starting on :%s", cfg.Port)
 	if err := http.ListenAndServe(":"+cfg.Port, router); err != nil {
