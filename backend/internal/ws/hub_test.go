@@ -6,7 +6,7 @@ import (
 )
 
 func TestHubCreateTable(t *testing.T) {
-	hub := NewHub()
+	hub := NewHub(nil)
 	table := hub.CreateTable()
 
 	if table == nil {
@@ -18,7 +18,7 @@ func TestHubCreateTable(t *testing.T) {
 }
 
 func TestHubGetTable(t *testing.T) {
-	hub := NewHub()
+	hub := NewHub(nil)
 	table := hub.CreateTable()
 
 	got, ok := hub.GetTable(table.ID)
@@ -31,7 +31,7 @@ func TestHubGetTable(t *testing.T) {
 }
 
 func TestHubGetTableNotFound(t *testing.T) {
-	hub := NewHub()
+	hub := NewHub(nil)
 
 	if _, ok := hub.GetTable("nonexistent"); ok {
 		t.Error("GetTable should return false for unknown ID")
@@ -39,7 +39,7 @@ func TestHubGetTableNotFound(t *testing.T) {
 }
 
 func TestHubRemoveTable(t *testing.T) {
-	hub := NewHub()
+	hub := NewHub(nil)
 	table := hub.CreateTable()
 
 	hub.RemoveTable(table.ID)
@@ -50,7 +50,7 @@ func TestHubRemoveTable(t *testing.T) {
 }
 
 func TestHubUniqueIDs(t *testing.T) {
-	hub := NewHub()
+	hub := NewHub(nil)
 	seen := make(map[string]bool)
 
 	for range 100 {
@@ -63,12 +63,12 @@ func TestHubUniqueIDs(t *testing.T) {
 }
 
 func TestHubRemoveNonexistent(t *testing.T) {
-	hub := NewHub()
+	hub := NewHub(nil)
 	hub.RemoveTable("does-not-exist") // should not panic
 }
 
 func TestHubConcurrentAccess(t *testing.T) {
-	hub := NewHub()
+	hub := NewHub(nil)
 	var wg sync.WaitGroup
 
 	// Hammer create/get/remove from 20 goroutines

@@ -13,7 +13,7 @@ import (
 
 func setupTestServer(t *testing.T) (*Hub, *httptest.Server) {
 	t.Helper()
-	hub := NewHub()
+	hub := NewHub(nil)
 	server := httptest.NewServer(http.HandlerFunc(hub.HandleUpgrade))
 	t.Cleanup(server.Close)
 	return hub, server

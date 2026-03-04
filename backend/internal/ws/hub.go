@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/gorilla/websocket"
+	"github.com/martinzha28/bridge-platform/backend/internal/repository"
 )
 
 var upgrader = websocket.Upgrader{
@@ -19,13 +20,15 @@ var upgrader = websocket.Upgrader{
 }
 
 type Hub struct {
-	mu     sync.Mutex
-	tables map[string]*Table
+	mu       sync.Mutex
+	tables   map[string]*Table
+	gameRepo *repository.GameRepository
 }
 
-func NewHub() *Hub {
+func NewHub(gameRepo *repository.GameRepository) *Hub {
 	return &Hub{
-		tables: make(map[string]*Table),
+		tables:   make(map[string]*Table),
+		gameRepo: gameRepo,
 	}
 }
 
@@ -34,7 +37,7 @@ func (h *Hub) CreateTable() *Table {
 	defer h.mu.Unlock()
 
 	id := generateTableID()
-	t := NewTable(id)
+	t := NewTable(id, h.gameRepo)
 	h.tables[id] = t
 	return t
 }

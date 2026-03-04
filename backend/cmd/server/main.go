@@ -7,6 +7,7 @@ import (
 
 	"github.com/martinzha28/bridge-platform/backend/internal/config"
 	"github.com/martinzha28/bridge-platform/backend/internal/database"
+	"github.com/martinzha28/bridge-platform/backend/internal/repository"
 	"github.com/martinzha28/bridge-platform/backend/internal/routes"
 	"github.com/martinzha28/bridge-platform/backend/internal/ws"
 )
@@ -29,7 +30,8 @@ func main() {
 	defer rdb.Close()
 	log.Println("Connected to Redis")
 
-	hub := ws.NewHub()
+	gameRepo := repository.NewGameRepository(db)
+	hub := ws.NewHub(gameRepo)
 	router := routes.SetupRouter(db, rdb, hub)
 
 	log.Printf("Server starting on :%s", cfg.Port)

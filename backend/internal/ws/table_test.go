@@ -55,7 +55,7 @@ func seatAllPlayers(t *testing.T, table *Table) [game.NumDirections]*Client {
 }
 
 func TestTableSit(t *testing.T) {
-	table := NewTable("test")
+	table := NewTable("test", nil)
 	c := newTestClient()
 
 	if err := table.Sit(c, game.North); err != nil {
@@ -64,7 +64,7 @@ func TestTableSit(t *testing.T) {
 }
 
 func TestTableSitOccupied(t *testing.T) {
-	table := NewTable("test")
+	table := NewTable("test", nil)
 	c1 := newTestClient()
 	c2 := newTestClient()
 
@@ -77,7 +77,7 @@ func TestTableSitOccupied(t *testing.T) {
 }
 
 func TestTableSitDifferentSeats(t *testing.T) {
-	table := NewTable("test")
+	table := NewTable("test", nil)
 	c1 := newTestClient()
 	c2 := newTestClient()
 
@@ -90,7 +90,7 @@ func TestTableSitDifferentSeats(t *testing.T) {
 }
 
 func TestTableStartNotEnoughPlayers(t *testing.T) {
-	table := NewTable("test")
+	table := NewTable("test", nil)
 	c := newTestClient()
 	table.Sit(c, game.North)
 
@@ -100,7 +100,7 @@ func TestTableStartNotEnoughPlayers(t *testing.T) {
 }
 
 func TestTableStartSuccess(t *testing.T) {
-	table := NewTable("test")
+	table := NewTable("test", nil)
 	clients := seatAllPlayers(t, table)
 
 	if err := table.Start(42); err != nil {
@@ -117,7 +117,7 @@ func TestTableStartSuccess(t *testing.T) {
 }
 
 func TestTableStartTwice(t *testing.T) {
-	table := NewTable("test")
+	table := NewTable("test", nil)
 	seatAllPlayers(t, table)
 
 	if err := table.Start(42); err != nil {
@@ -129,7 +129,7 @@ func TestTableStartTwice(t *testing.T) {
 }
 
 func TestTableBidBeforeStart(t *testing.T) {
-	table := NewTable("test")
+	table := NewTable("test", nil)
 
 	if err := table.Bid(game.North, game.BidCall(1, game.NoTrump)); err == nil {
 		t.Error("expected error bidding before game starts")
@@ -137,7 +137,7 @@ func TestTableBidBeforeStart(t *testing.T) {
 }
 
 func TestTableBidBroadcasts(t *testing.T) {
-	table := NewTable("test")
+	table := NewTable("test", nil)
 	clients := seatAllPlayers(t, table)
 	table.Start(42)
 
@@ -160,7 +160,7 @@ func TestTableBidBroadcasts(t *testing.T) {
 }
 
 func TestTableRemoveClient(t *testing.T) {
-	table := NewTable("test")
+	table := NewTable("test", nil)
 	c := newTestClient()
 	table.Sit(c, game.North)
 
@@ -174,7 +174,7 @@ func TestTableRemoveClient(t *testing.T) {
 }
 
 func TestTablePlayCardBeforeStart(t *testing.T) {
-	table := NewTable("test")
+	table := NewTable("test", nil)
 
 	card := game.NewCard(game.Spades, game.Ace)
 	if err := table.PlayCard(game.North, card); err == nil {
@@ -183,7 +183,7 @@ func TestTablePlayCardBeforeStart(t *testing.T) {
 }
 
 func TestTablePlayCardDuringAuction(t *testing.T) {
-	table := NewTable("test")
+	table := NewTable("test", nil)
 	seatAllPlayers(t, table)
 	table.Start(42)
 
@@ -195,7 +195,7 @@ func TestTablePlayCardDuringAuction(t *testing.T) {
 }
 
 func TestTableBidDuringPlay(t *testing.T) {
-	table := NewTable("test")
+	table := NewTable("test", nil)
 	clients := seatAllPlayers(t, table)
 	table.Start(42)
 	for _, c := range clients {
@@ -218,7 +218,7 @@ func TestTableBidDuringPlay(t *testing.T) {
 }
 
 func TestTableBidWrongTurn(t *testing.T) {
-	table := NewTable("test")
+	table := NewTable("test", nil)
 	clients := seatAllPlayers(t, table)
 	table.Start(42)
 	for _, c := range clients {
@@ -232,7 +232,7 @@ func TestTableBidWrongTurn(t *testing.T) {
 }
 
 func TestTablePlayCardWrongTurn(t *testing.T) {
-	table := NewTable("test")
+	table := NewTable("test", nil)
 	clients := seatAllPlayers(t, table)
 	table.Start(42)
 	for _, c := range clients {
@@ -255,7 +255,7 @@ func TestTablePlayCardWrongTurn(t *testing.T) {
 }
 
 func TestTablePlayCardNotInHand(t *testing.T) {
-	table := NewTable("test")
+	table := NewTable("test", nil)
 	clients := seatAllPlayers(t, table)
 	table.Start(42)
 	for _, c := range clients {
@@ -286,7 +286,7 @@ func TestTablePlayCardNotInHand(t *testing.T) {
 }
 
 func TestTableSameClientTwoSeats(t *testing.T) {
-	table := NewTable("test")
+	table := NewTable("test", nil)
 	c := newTestClient()
 
 	if err := table.Sit(c, game.North); err != nil {
@@ -298,7 +298,7 @@ func TestTableSameClientTwoSeats(t *testing.T) {
 }
 
 func TestTableRemoveClientNotAtTable(t *testing.T) {
-	table := NewTable("test")
+	table := NewTable("test", nil)
 	c := newTestClient()
 
 	// Should not panic
@@ -306,7 +306,7 @@ func TestTableRemoveClientNotAtTable(t *testing.T) {
 }
 
 func TestTableStartSeedZero(t *testing.T) {
-	table := NewTable("test")
+	table := NewTable("test", nil)
 	clients := seatAllPlayers(t, table)
 
 	// seed=0 should auto-generate a seed
@@ -323,7 +323,7 @@ func TestTableStartSeedZero(t *testing.T) {
 }
 
 func TestTableStartAfterComplete(t *testing.T) {
-	table := NewTable("test")
+	table := NewTable("test", nil)
 	clients := seatAllPlayers(t, table)
 	table.Start(42)
 	for _, c := range clients {
@@ -350,7 +350,7 @@ func TestTableStartAfterComplete(t *testing.T) {
 }
 
 func TestTableBroadcastDifferentViews(t *testing.T) {
-	table := NewTable("test")
+	table := NewTable("test", nil)
 	clients := seatAllPlayers(t, table)
 	table.Start(42)
 
@@ -395,7 +395,7 @@ func TestTableBroadcastDifferentViews(t *testing.T) {
 }
 
 func TestTableFullGame(t *testing.T) {
-	table := NewTable("test")
+	table := NewTable("test", nil)
 	clients := seatAllPlayers(t, table)
 
 	if err := table.Start(42); err != nil {
