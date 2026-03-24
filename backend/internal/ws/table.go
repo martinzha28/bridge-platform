@@ -13,11 +13,12 @@ import (
 )
 
 type Table struct {
-	ID       string
-	mu       sync.Mutex
-	game     *game.Game
-	players  map[game.Direction]*Client
-	gameRepo *repository.GameRepository
+	ID        string
+	mu        sync.Mutex
+	game      *game.Game
+	players   map[game.Direction]*Client
+	gameRepo  *repository.GameRepository
+	persisted bool
 }
 
 func NewTable(id string, gameRepo *repository.GameRepository) *Table {
@@ -62,6 +63,7 @@ func (t *Table) Start(seed int64) error {
 	}
 
 	t.game = game.NewGame(1)
+	t.persisted = false
 	if err := t.game.Deal(seed); err != nil {
 		return err
 	}
@@ -134,15 +136,17 @@ func (t *Table) broadcastState() {
 	}
 }
 
-// persistIfComplete saves the finished game to the database.
+// persistIfComplete saves the finished game to the database exactly once.
 // Must be called with t.mu held.
 func (t *Table) persistIfComplete() {
-	if t.gameRepo == nil || t.game.Phase != game.PhaseComplete {
+	if t.gameRepo == nil || t.persisted || t.game.Phase != game.PhaseComplete {
 		return
 	}
 
+	t.persisted = true
 	record := repository.GameFromSession(t.game)
 	if err := t.gameRepo.SaveGame(context.Background(), &record); err != nil {
+		t.persisted = false
 		log.Printf("failed to persist game: %v", err)
 	}
 }
