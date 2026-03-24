@@ -1,25 +1,31 @@
 package ws
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
 	"github.com/martinzha28/bridge-platform/backend/internal/game"
+	"github.com/martinzha28/bridge-platform/backend/internal/repository"
 )
 
 type Table struct {
-	ID      string
-	mu      sync.Mutex
-	game    *game.Game
-	players map[game.Direction]*Client
+	ID        string
+	mu        sync.Mutex
+	game      *game.Game
+	players   map[game.Direction]*Client
+	gameRepo  *repository.GameRepository
+	persisted bool
 }
 
-func NewTable(id string) *Table {
+func NewTable(id string, gameRepo *repository.GameRepository) *Table {
 	return &Table{
-		ID:      id,
-		players: make(map[game.Direction]*Client),
+		ID:       id,
+		players:  make(map[game.Direction]*Client),
+		gameRepo: gameRepo,
 	}
 }
 
@@ -57,6 +63,7 @@ func (t *Table) Start(seed int64) error {
 	}
 
 	t.game = game.NewGame(1)
+	t.persisted = false
 	if err := t.game.Deal(seed); err != nil {
 		return err
 	}
@@ -77,6 +84,7 @@ func (t *Table) Bid(dir game.Direction, call game.Call) error {
 	}
 
 	t.broadcastState()
+	t.persistIfComplete()
 	return nil
 }
 
@@ -92,6 +100,7 @@ func (t *Table) PlayCard(dir game.Direction, card game.Card) error {
 	}
 
 	t.broadcastState()
+	t.persistIfComplete()
 	return nil
 }
 
@@ -124,5 +133,20 @@ func (t *Table) broadcastState() {
 		case client.send <- data:
 		default:
 		}
+	}
+}
+
+// persistIfComplete saves the finished game to the database exactly once.
+// Must be called with t.mu held.
+func (t *Table) persistIfComplete() {
+	if t.gameRepo == nil || t.persisted || t.game.Phase != game.PhaseComplete {
+		return
+	}
+
+	t.persisted = true
+	record := repository.GameFromSession(t.game)
+	if err := t.gameRepo.SaveGame(context.Background(), &record); err != nil {
+		t.persisted = false
+		log.Printf("failed to persist game: %v", err)
 	}
 }
