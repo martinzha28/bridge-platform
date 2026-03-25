@@ -129,7 +129,7 @@ func TestWSSitAndStart(t *testing.T) {
 	}
 
 	// Start the game
-	wsSend(t, conns[0], ClientMessage{Type: MsgStart, Seed: 42})
+	wsSend(t, conns[0], ClientMessage{Type: MsgStart, Seed: seedPtr(42)})
 
 	// All 4 clients should receive game_state
 	for i, conn := range conns {
@@ -239,7 +239,7 @@ func TestWSStartNotEnoughPlayers(t *testing.T) {
 	wsSend(t, conn, ClientMessage{Type: MsgSit, Direction: "N"})
 	wsRecv(t, conn)
 
-	wsSend(t, conn, ClientMessage{Type: MsgStart, Seed: 42})
+	wsSend(t, conn, ClientMessage{Type: MsgStart, Seed: seedPtr(42)})
 	resp := wsRecv(t, conn)
 
 	if resp.Type != MsgError {
@@ -322,7 +322,7 @@ func TestWSStartBeforeSitting(t *testing.T) {
 	_, server := setupTestServer(t)
 	conn := dial(t, server)
 
-	wsSend(t, conn, ClientMessage{Type: MsgStart, Seed: 42})
+	wsSend(t, conn, ClientMessage{Type: MsgStart, Seed: seedPtr(42)})
 	resp := wsRecv(t, conn)
 
 	if resp.Type != MsgError {

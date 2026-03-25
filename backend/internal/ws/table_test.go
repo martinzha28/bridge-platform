@@ -14,6 +14,8 @@ func newTestClient() *Client {
 	}
 }
 
+func seedPtr(v int64) *int64 { return &v }
+
 func readServerMsg(t *testing.T, c *Client) ServerMessage {
 	t.Helper()
 	select {
@@ -94,7 +96,7 @@ func TestTableStartNotEnoughPlayers(t *testing.T) {
 	c := newTestClient()
 	table.Sit(c, game.North)
 
-	if err := table.Start(42); err == nil {
+	if err := table.Start(seedPtr(42)); err == nil {
 		t.Error("expected error starting with 1 player")
 	}
 }
@@ -103,7 +105,7 @@ func TestTableStartSuccess(t *testing.T) {
 	table := NewTable("test", nil)
 	clients := seatAllPlayers(t, table)
 
-	if err := table.Start(42); err != nil {
+	if err := table.Start(seedPtr(42)); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 
@@ -120,10 +122,10 @@ func TestTableStartTwice(t *testing.T) {
 	table := NewTable("test", nil)
 	seatAllPlayers(t, table)
 
-	if err := table.Start(42); err != nil {
+	if err := table.Start(seedPtr(42)); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
-	if err := table.Start(99); err == nil {
+	if err := table.Start(seedPtr(99)); err == nil {
 		t.Error("expected error starting a second game while one is in progress")
 	}
 }
@@ -139,7 +141,7 @@ func TestTableBidBeforeStart(t *testing.T) {
 func TestTableBidBroadcasts(t *testing.T) {
 	table := NewTable("test", nil)
 	clients := seatAllPlayers(t, table)
-	table.Start(42)
+	table.Start(seedPtr(42))
 
 	// Drain the initial game_state messages
 	for _, c := range clients {
@@ -185,7 +187,7 @@ func TestTablePlayCardBeforeStart(t *testing.T) {
 func TestTablePlayCardDuringAuction(t *testing.T) {
 	table := NewTable("test", nil)
 	seatAllPlayers(t, table)
-	table.Start(42)
+	table.Start(seedPtr(42))
 
 	card := game.NewCard(game.Spades, game.Ace)
 	err := table.PlayCard(game.North, card)
@@ -197,7 +199,7 @@ func TestTablePlayCardDuringAuction(t *testing.T) {
 func TestTableBidDuringPlay(t *testing.T) {
 	table := NewTable("test", nil)
 	clients := seatAllPlayers(t, table)
-	table.Start(42)
+	table.Start(seedPtr(42))
 	for _, c := range clients {
 		drainMessages(c)
 	}
@@ -220,7 +222,7 @@ func TestTableBidDuringPlay(t *testing.T) {
 func TestTableBidWrongTurn(t *testing.T) {
 	table := NewTable("test", nil)
 	clients := seatAllPlayers(t, table)
-	table.Start(42)
+	table.Start(seedPtr(42))
 	for _, c := range clients {
 		drainMessages(c)
 	}
@@ -234,7 +236,7 @@ func TestTableBidWrongTurn(t *testing.T) {
 func TestTablePlayCardWrongTurn(t *testing.T) {
 	table := NewTable("test", nil)
 	clients := seatAllPlayers(t, table)
-	table.Start(42)
+	table.Start(seedPtr(42))
 	for _, c := range clients {
 		drainMessages(c)
 	}
@@ -257,7 +259,7 @@ func TestTablePlayCardWrongTurn(t *testing.T) {
 func TestTablePlayCardNotInHand(t *testing.T) {
 	table := NewTable("test", nil)
 	clients := seatAllPlayers(t, table)
-	table.Start(42)
+	table.Start(seedPtr(42))
 	for _, c := range clients {
 		drainMessages(c)
 	}
@@ -309,9 +311,9 @@ func TestTableStartSeedZero(t *testing.T) {
 	table := NewTable("test", nil)
 	clients := seatAllPlayers(t, table)
 
-	// seed=0 should auto-generate a seed
-	if err := table.Start(0); err != nil {
-		t.Fatalf("Start(0): %v", err)
+	// nil seed should auto-generate
+	if err := table.Start(nil); err != nil {
+		t.Fatalf("Start(nil): %v", err)
 	}
 
 	for _, c := range clients {
@@ -325,7 +327,7 @@ func TestTableStartSeedZero(t *testing.T) {
 func TestTableStartAfterComplete(t *testing.T) {
 	table := NewTable("test", nil)
 	clients := seatAllPlayers(t, table)
-	table.Start(42)
+	table.Start(seedPtr(42))
 	for _, c := range clients {
 		drainMessages(c)
 	}
@@ -344,7 +346,7 @@ func TestTableStartAfterComplete(t *testing.T) {
 	}
 
 	// Starting a new game after completion should work
-	if err := table.Start(99); err != nil {
+	if err := table.Start(seedPtr(99)); err != nil {
 		t.Errorf("Start after complete should succeed: %v", err)
 	}
 }
@@ -352,7 +354,7 @@ func TestTableStartAfterComplete(t *testing.T) {
 func TestTableBroadcastDifferentViews(t *testing.T) {
 	table := NewTable("test", nil)
 	clients := seatAllPlayers(t, table)
-	table.Start(42)
+	table.Start(seedPtr(42))
 
 	// Each player should see their own hand (13 cards) and they
 	// should not all be identical (different players have different cards)
@@ -398,7 +400,7 @@ func TestTableFullGame(t *testing.T) {
 	table := NewTable("test", nil)
 	clients := seatAllPlayers(t, table)
 
-	if err := table.Start(42); err != nil {
+	if err := table.Start(seedPtr(42)); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 	for _, c := range clients {
@@ -458,4 +460,82 @@ func TestTableFullGame(t *testing.T) {
 	}
 
 	t.Logf("Game result: contract=%v, score=%d", table.game.Result.Contract, table.game.Result.Score)
+}
+
+func passOutHand(t *testing.T, table *Table, clients [game.NumDirections]*Client) {
+	t.Helper()
+	dealer := table.game.Board.Dealer
+	for i := range game.NumDirections {
+		dir := game.Direction((int(dealer) + i) % game.NumDirections)
+		if err := table.Bid(dir, game.Call{Type: game.Pass}); err != nil {
+			t.Fatalf("Bid Pass(%v): %v", dir, err)
+		}
+	}
+	for _, c := range clients {
+		drainMessages(c)
+	}
+}
+
+func TestTableBoardNumberIncrements(t *testing.T) {
+	table := NewTable("test", nil)
+	clients := seatAllPlayers(t, table)
+
+	for board := 1; board <= 4; board++ {
+		if table.boardNum != board {
+			t.Fatalf("before game %d: boardNum = %d, want %d", board, table.boardNum, board)
+		}
+
+		table.Start(seedPtr(int64(board * 100)))
+		for _, c := range clients {
+			drainMessages(c)
+		}
+
+		if table.game.Board.Number != board {
+			t.Errorf("game %d: Board.Number = %d, want %d", board, table.game.Board.Number, board)
+		}
+
+		passOutHand(t, table, clients)
+
+		if table.game.Phase != game.PhaseComplete {
+			t.Fatalf("game %d: Phase = %v, want Complete", board, table.game.Phase)
+		}
+	}
+
+	if table.boardNum != 5 {
+		t.Errorf("after 4 games: boardNum = %d, want 5", table.boardNum)
+	}
+}
+
+func TestTableBoardNumberAffectsDealerRotation(t *testing.T) {
+	table := NewTable("test", nil)
+	clients := seatAllPlayers(t, table)
+
+	expectedDealers := []game.Direction{game.North, game.East, game.South, game.West}
+
+	for i, wantDealer := range expectedDealers {
+		table.Start(seedPtr(int64(i + 1)))
+		for _, c := range clients {
+			drainMessages(c)
+		}
+
+		if table.game.Board.Dealer != wantDealer {
+			t.Errorf("board %d: Dealer = %v, want %v", i+1, table.game.Board.Dealer, wantDealer)
+		}
+
+		passOutHand(t, table, clients)
+	}
+}
+
+func TestTableSeedZeroDeterministic(t *testing.T) {
+	table1 := NewTable("t1", nil)
+	seatAllPlayers(t, table1)
+	table1.Start(seedPtr(0))
+
+	table2 := NewTable("t2", nil)
+	seatAllPlayers(t, table2)
+	table2.Start(seedPtr(0))
+
+	if table1.game.Board.ToPBN() != table2.game.Board.ToPBN() {
+		t.Error("seed 0 should produce identical deals, but got different PBNs")
+	}
 }

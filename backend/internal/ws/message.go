@@ -21,7 +21,7 @@ type ClientMessage struct {
 	Direction string `json:"direction,omitempty"`
 	Call      string `json:"call,omitempty"`
 	Card      string `json:"card,omitempty"`
-	Seed      int64  `json:"seed,omitempty"`
+	Seed      *int64 `json:"seed,omitempty"`
 }
 
 type ServerMessage struct {
