@@ -19,6 +19,7 @@ type Table struct {
 	players   map[game.Direction]*Client
 	gameRepo  *repository.GameRepository
 	persisted bool
+	boardNum  int
 }
 
 func NewTable(id string, gameRepo *repository.GameRepository) *Table {
@@ -26,6 +27,7 @@ func NewTable(id string, gameRepo *repository.GameRepository) *Table {
 		ID:       id,
 		players:  make(map[game.Direction]*Client),
 		gameRepo: gameRepo,
+		boardNum: 1,
 	}
 }
 
@@ -62,7 +64,7 @@ func (t *Table) Start(seed int64) error {
 		seed = time.Now().UnixNano()
 	}
 
-	t.game = game.NewGame(1)
+	t.game = game.NewGame(t.boardNum)
 	t.persisted = false
 	if err := t.game.Deal(seed); err != nil {
 		return err
@@ -84,7 +86,7 @@ func (t *Table) Bid(dir game.Direction, call game.Call) error {
 	}
 
 	t.broadcastState()
-	t.persistIfComplete()
+	t.onCompleteOnce()
 	return nil
 }
 
@@ -100,7 +102,7 @@ func (t *Table) PlayCard(dir game.Direction, card game.Card) error {
 	}
 
 	t.broadcastState()
-	t.persistIfComplete()
+	t.onCompleteOnce()
 	return nil
 }
 
@@ -136,17 +138,21 @@ func (t *Table) broadcastState() {
 	}
 }
 
-// persistIfComplete saves the finished game to the database exactly once.
+// onCompleteOnce advances the board number and persists the game exactly once.
 // Must be called with t.mu held.
-func (t *Table) persistIfComplete() {
-	if t.gameRepo == nil || t.persisted || t.game.Phase != game.PhaseComplete {
+func (t *Table) onCompleteOnce() {
+	if t.persisted || t.game.Phase != game.PhaseComplete {
 		return
 	}
 
 	t.persisted = true
+	t.boardNum++
+
+	if t.gameRepo == nil {
+		return
+	}
 	record := repository.GameFromSession(t.game)
 	if err := t.gameRepo.SaveGame(context.Background(), &record); err != nil {
-		t.persisted = false
 		log.Printf("failed to persist game: %v", err)
 	}
 }

@@ -459,3 +459,67 @@ func TestTableFullGame(t *testing.T) {
 
 	t.Logf("Game result: contract=%v, score=%d", table.game.Result.Contract, table.game.Result.Score)
 }
+
+func passOutHand(t *testing.T, table *Table, clients [game.NumDirections]*Client) {
+	t.Helper()
+	dealer := table.game.Board.Dealer
+	for i := range game.NumDirections {
+		dir := game.Direction((int(dealer) + i) % game.NumDirections)
+		if err := table.Bid(dir, game.Call{Type: game.Pass}); err != nil {
+			t.Fatalf("Bid Pass(%v): %v", dir, err)
+		}
+	}
+	for _, c := range clients {
+		drainMessages(c)
+	}
+}
+
+func TestTableBoardNumberIncrements(t *testing.T) {
+	table := NewTable("test", nil)
+	clients := seatAllPlayers(t, table)
+
+	for board := 1; board <= 4; board++ {
+		if table.boardNum != board {
+			t.Fatalf("before game %d: boardNum = %d, want %d", board, table.boardNum, board)
+		}
+
+		table.Start(int64(board * 100))
+		for _, c := range clients {
+			drainMessages(c)
+		}
+
+		if table.game.Board.Number != board {
+			t.Errorf("game %d: Board.Number = %d, want %d", board, table.game.Board.Number, board)
+		}
+
+		passOutHand(t, table, clients)
+
+		if table.game.Phase != game.PhaseComplete {
+			t.Fatalf("game %d: Phase = %v, want Complete", board, table.game.Phase)
+		}
+	}
+
+	if table.boardNum != 5 {
+		t.Errorf("after 4 games: boardNum = %d, want 5", table.boardNum)
+	}
+}
+
+func TestTableBoardNumberAffectsDealerRotation(t *testing.T) {
+	table := NewTable("test", nil)
+	clients := seatAllPlayers(t, table)
+
+	expectedDealers := []game.Direction{game.North, game.East, game.South, game.West}
+
+	for i, wantDealer := range expectedDealers {
+		table.Start(int64(i + 1))
+		for _, c := range clients {
+			drainMessages(c)
+		}
+
+		if table.game.Board.Dealer != wantDealer {
+			t.Errorf("board %d: Dealer = %v, want %v", i+1, table.game.Board.Dealer, wantDealer)
+		}
+
+		passOutHand(t, table, clients)
+	}
+}
