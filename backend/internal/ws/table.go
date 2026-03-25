@@ -49,7 +49,7 @@ func (t *Table) Sit(c *Client, dir game.Direction) error {
 	return nil
 }
 
-func (t *Table) Start(seed int64) error {
+func (t *Table) Start(seed *int64) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -60,13 +60,14 @@ func (t *Table) Start(seed int64) error {
 		return fmt.Errorf("need 4 players to start, have %d", len(t.players))
 	}
 
-	if seed == 0 {
-		seed = time.Now().UnixNano()
+	s := time.Now().UnixNano()
+	if seed != nil {
+		s = *seed
 	}
 
 	t.game = game.NewGame(t.boardNum)
 	t.persisted = false
-	if err := t.game.Deal(seed); err != nil {
+	if err := t.game.Deal(s); err != nil {
 		return err
 	}
 
