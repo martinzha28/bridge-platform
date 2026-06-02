@@ -7,12 +7,17 @@ import (
 )
 
 type User struct {
-	ID          uuid.UUID `json:"id"`
-	Username    string    `json:"username"`
-	Rating      int       `json:"rating"`
-	GamesPlayed int       `json:"gamesPlayed"`
-	Karma       int       `json:"karma"`
-	CreatedAt   time.Time `json:"createdAt"`
+	ID           uuid.UUID `json:"id"`
+	Username     string    `json:"username"`
+	PasswordHash string    `json:"-"`
+	Email        *string   `json:"email,omitempty"`
+	Rating       int       `json:"rating"`
+	GamesPlayed  int       `json:"gamesPlayed"`
+	Karma        int       `json:"karma"`
+	About        *string   `json:"about,omitempty"`
+	Nationality  *string   `json:"nationality,omitempty"`
+	Systems      []string  `json:"systems,omitempty"`
+	CreatedAt    time.Time `json:"createdAt"`
 }
 
 type Tournament struct {

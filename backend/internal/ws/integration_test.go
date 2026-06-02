@@ -8,13 +8,19 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"github.com/martinzha28/bridge-platform/backend/internal/auth"
 )
 
 func setupTestServer(t *testing.T) (*Hub, *httptest.Server) {
 	t.Helper()
 	hub := NewHub(nil)
-	server := httptest.NewServer(http.HandlerFunc(hub.HandleUpgrade))
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := auth.InjectUserID(r.Context(), uuid.New())
+		hub.HandleUpgrade(w, r.WithContext(ctx))
+	})
+	server := httptest.NewServer(handler)
 	t.Cleanup(server.Close)
 	return hub, server
 }

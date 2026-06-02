@@ -5,6 +5,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/martinzha28/bridge-platform/backend/internal/game"
 )
@@ -21,16 +22,18 @@ type Client struct {
 	hub       *Hub
 	conn      *websocket.Conn
 	send      chan []byte
+	userID    uuid.UUID
 	table     *Table
 	direction game.Direction
 	seated    bool
 }
 
-func NewClient(hub *Hub, conn *websocket.Conn) *Client {
+func NewClient(hub *Hub, conn *websocket.Conn, userID uuid.UUID) *Client {
 	return &Client{
-		hub:  hub,
-		conn: conn,
-		send: make(chan []byte, sendBufferSize),
+		hub:    hub,
+		conn:   conn,
+		send:   make(chan []byte, sendBufferSize),
+		userID: userID,
 	}
 }
 
