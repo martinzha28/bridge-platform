@@ -67,6 +67,9 @@ Connect to `ws://localhost:8080/ws`, then send JSON messages:
 // 3. Take a seat (direction: N, E, S, W)
 {"type": "sit", "direction": "N"}
 
+// 3b. Seat a bot at a direction instead (difficulty 1 = random; 2/3 reserved for future levels)
+{"type": "sit_bot", "direction": "E", "difficulty": 1}
+
 // 4. Start the game once all 4 seats are filled (optional seed for reproducible deals)
 {"type": "start", "seed": 42}
 
