@@ -161,12 +161,12 @@ func TestTableBidBroadcasts(t *testing.T) {
 	}
 }
 
-func TestTableRemoveClient(t *testing.T) {
+func TestTableRemovePlayer(t *testing.T) {
 	table := NewTable("test", nil)
 	c := newTestClient()
 	table.Sit(c, game.North)
 
-	table.RemoveClient(c)
+	table.RemovePlayer(c)
 
 	// Seat should be free again
 	c2 := newTestClient()
@@ -299,12 +299,12 @@ func TestTableSameClientTwoSeats(t *testing.T) {
 	}
 }
 
-func TestTableRemoveClientNotAtTable(t *testing.T) {
+func TestTableRemovePlayerNotAtTable(t *testing.T) {
 	table := NewTable("test", nil)
 	c := newTestClient()
 
 	// Should not panic
-	table.RemoveClient(c)
+	table.RemovePlayer(c)
 }
 
 func TestTableStartSeedZero(t *testing.T) {

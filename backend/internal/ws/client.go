@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/martinzha28/bridge-platform/backend/internal/bot"
 	"github.com/martinzha28/bridge-platform/backend/internal/game"
 )
 
@@ -129,7 +130,7 @@ func (c *Client) handleMessage(msg ClientMessage) {
 			c.sendError("invalid direction: " + msg.Direction)
 			return
 		}
-		if err := c.table.Sit(c, dir); err != nil {
+		if err := c.table.Sit(Player(c), dir); err != nil {
 			c.sendError(err.Error())
 			return
 		}
@@ -138,6 +139,30 @@ func (c *Client) handleMessage(msg ClientMessage) {
 		c.sendJSON(ServerMessage{
 			Type:    MsgSeated,
 			Payload: map[string]string{"direction": dir.String()},
+		})
+
+	case MsgSitBot:
+		if c.table == nil {
+			c.sendError("join a table first")
+			return
+		}
+		if len(msg.Direction) == 0 {
+			c.sendError("direction is required")
+			return
+		}
+		dir, ok := game.ParseDirection(msg.Direction[0])
+		if !ok {
+			c.sendError("invalid direction: " + msg.Direction)
+			return
+		}
+		difficulty, _ := bot.ParseDifficulty(msg.Difficulty)
+		if err := c.table.SitBot(dir, difficulty); err != nil {
+			c.sendError(err.Error())
+			return
+		}
+		c.sendJSON(ServerMessage{
+			Type:    MsgSeated,
+			Payload: map[string]string{"direction": dir.String(), "bot": "true"},
 		})
 
 	case MsgStart:
@@ -185,6 +210,13 @@ func (c *Client) handleMessage(msg ClientMessage) {
 	}
 }
 
+func (c *Client) Send(data []byte) {
+	select {
+	case c.send <- data:
+	default:
+	}
+}
+
 func (c *Client) sendJSON(msg ServerMessage) {
 	data, err := json.Marshal(msg)
 	if err != nil {
@@ -205,7 +237,7 @@ func (c *Client) sendError(message string) {
 
 func (c *Client) disconnect() {
 	if c.table != nil {
-		c.table.RemoveClient(c)
+		c.table.RemovePlayer(c)
 	}
 	close(c.send)
 }

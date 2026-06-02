@@ -4,6 +4,7 @@ const (
 	MsgCreateTable = "create_table"
 	MsgJoinTable   = "join_table"
 	MsgSit         = "sit"
+	MsgSitBot      = "sit_bot"
 	MsgStart       = "start"
 	MsgBid         = "bid"
 	MsgPlayCard    = "play_card"
@@ -16,12 +17,13 @@ const (
 )
 
 type ClientMessage struct {
-	Type      string `json:"type"`
-	TableID   string `json:"tableID,omitempty"`
-	Direction string `json:"direction,omitempty"`
-	Call      string `json:"call,omitempty"`
-	Card      string `json:"card,omitempty"`
-	Seed      *int64 `json:"seed,omitempty"`
+	Type       string `json:"type"`
+	TableID    string `json:"tableID,omitempty"`
+	Direction  string `json:"direction,omitempty"`
+	Call       string `json:"call,omitempty"`
+	Card       string `json:"card,omitempty"`
+	Seed       *int64 `json:"seed,omitempty"`
+	Difficulty int    `json:"difficulty,omitempty"`
 }
 
 type ServerMessage struct {
