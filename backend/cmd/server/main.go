@@ -32,7 +32,7 @@ func main() {
 
 	gameRepo := repository.NewGameRepository(db)
 	hub := ws.NewHub(gameRepo)
-	router := routes.SetupRouter(db, rdb, hub)
+	router := routes.SetupRouter(db, rdb, hub, cfg)
 
 	log.Printf("Server starting on :%s", cfg.Port)
 	if err := http.ListenAndServe(":"+cfg.Port, router); err != nil {

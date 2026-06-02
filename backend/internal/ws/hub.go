@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/gorilla/websocket"
+	"github.com/martinzha28/bridge-platform/backend/internal/auth"
 	"github.com/martinzha28/bridge-platform/backend/internal/repository"
 )
 
@@ -60,13 +61,19 @@ func (h *Hub) RemoveTable(id string) {
 // HandleUpgrade upgrades an HTTP connection to a WebSocket and
 // starts the client read/write pumps.
 func (h *Hub) HandleUpgrade(w http.ResponseWriter, r *http.Request) {
+	userID, ok := auth.UserIDFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("websocket upgrade error: %v", err)
 		return
 	}
 
-	client := NewClient(h, conn)
+	client := NewClient(h, conn, userID)
 	go client.writePump()
 	go client.readPump()
 }

@@ -6,6 +6,8 @@ type Config struct {
 	Port        string
 	DatabaseURL string
 	RedisAddr   string
+	JWTSecret   string
+	Env         string
 }
 
 func Load() Config {
@@ -13,6 +15,8 @@ func Load() Config {
 		Port:        getEnv("PORT", "8080"),
 		DatabaseURL: getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/bridge?sslmode=disable"),
 		RedisAddr:   getEnv("REDIS_ADDR", "localhost:6379"),
+		JWTSecret:   getEnv("JWT_SECRET", "dev-secret-change-in-production"),
+		Env:         getEnv("ENV", "development"),
 	}
 }
 
