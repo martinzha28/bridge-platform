@@ -27,7 +27,11 @@ func SetupRouter(db *pgxpool.Pool, rdb *redis.Client, hub *ws.Hub, cfg config.Co
 	// Protected
 	mux.Handle("GET /api/v1/auth/me", protected(http.HandlerFunc(h.GetMe)))
 	mux.Handle("PUT /api/v1/auth/me", protected(http.HandlerFunc(h.UpdateMe)))
-	mux.Handle("GET /ws", protected(http.HandlerFunc(hub.HandleUpgrade)))
+
+	// The WebSocket is open to guests. A valid token still attaches the
+	// player's identity; without one, HandleUpgrade assigns a throwaway ID.
+	optionalAuth := auth.OptionalMiddleware(cfg.JWTSecret)
+	mux.Handle("GET /ws", optionalAuth(http.HandlerFunc(hub.HandleUpgrade)))
 
 	return mux
 }

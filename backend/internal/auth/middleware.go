@@ -30,6 +30,22 @@ func Middleware(secret string) func(http.Handler) http.Handler {
 	}
 }
 
+// OptionalMiddleware attaches the caller's user ID when a valid token
+// cookie is present, and otherwise lets the request through
+// unauthenticated. Use it for endpoints that also serve guests.
+func OptionalMiddleware(secret string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if tokenStr, ok := TokenFromCookie(r); ok {
+				if claims, err := ParseToken(tokenStr, secret); err == nil {
+					r = r.WithContext(context.WithValue(r.Context(), userIDKey, claims.UserID))
+				}
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 func UserIDFromContext(ctx context.Context) (uuid.UUID, bool) {
 	id, ok := ctx.Value(userIDKey).(uuid.UUID)
 	return id, ok

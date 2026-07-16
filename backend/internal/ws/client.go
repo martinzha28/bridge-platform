@@ -241,6 +241,7 @@ func (c *Client) sendError(message string) {
 func (c *Client) disconnect() {
 	if c.table != nil {
 		c.table.RemovePlayer(c)
+		c.hub.reapIfEmpty(c.table)
 	}
 	close(c.send)
 }
