@@ -16,7 +16,9 @@ import {
   cardFace,
   groupHandBySuit,
   handCount,
+  historyRow,
   trumpSuit,
+  type BoardResult,
 } from "@/lib/view";
 
 const FELT_POS: Record<Seat, string> = { North: "n", East: "e", South: "s", West: "w" };
@@ -39,7 +41,7 @@ function feltCaption(view: PlayerView | null): string {
 }
 
 export default function TablePage() {
-  const { view, status, error, bid, playCard } = useTable();
+  const { view, status, error, history, bid, playCard } = useTable();
 
   return (
     <div className="app">
@@ -53,11 +55,7 @@ export default function TablePage() {
 
       <div className="side">
         <AuctionPanel view={view} />
-        <div className="box">
-          <div className="bt">
-            <span className="t">Boards</span>
-          </div>
-        </div>
+        <HistoryPanel history={history} />
         <div className="box">
           <div className="bt">
             <span className="t">Table chat</span>
@@ -280,6 +278,40 @@ function AuctionPanel({ view }: { view: PlayerView | null }) {
                     {call || " "}
                   </td>
                 ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function HistoryPanel({ history }: { history: BoardResult[] }) {
+  const rows = history.map(historyRow);
+  return (
+    <div className="box">
+      <div className="bt">
+        <span className="t">History</span>
+        {rows.length > 0 && <span className="r">{rows.length} played</span>}
+      </div>
+      <div className="scrolly">
+        <table className="auc">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Result</th>
+              <th>Score NS</th>
+              <th>Score EW</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.board}>
+                <td>{r.board}</td>
+                <td className={r.red ? "red" : undefined}>{r.result}</td>
+                <td>{r.scoreNS}</td>
+                <td>{r.scoreEW}</td>
               </tr>
             ))}
           </tbody>

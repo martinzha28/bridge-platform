@@ -104,6 +104,75 @@ export function trickCardFor(view: PlayerView, seat: Seat): string | undefined {
   return view.currentTrick.find((c) => c.seat === seat)?.card;
 }
 
+export interface BoardResult {
+  board: number;
+  vulnerability: string;
+  contract: string | null; // "1H" style, declarer stripped
+  declarer: Seat | null;
+  tricks: number; // taken by the declaring side
+  score: number; // from the declaring side's perspective
+  passedOut: boolean;
+}
+
+/** Pull a compact record out of a finished board's view, for the
+ *  Boards panel. Everything comes from the view the backend already
+ *  sent at completion. */
+export function boardSummary(view: PlayerView): BoardResult {
+  const r = view.result;
+  const declarer = r?.declarer ?? null;
+  const tricks =
+    !r || !declarer
+      ? 0
+      : declarer === "North" || declarer === "South"
+        ? r.tricksNS
+        : r.tricksEW;
+  return {
+    board: view.boardNumber,
+    vulnerability: view.vulnerability,
+    contract: r?.contract ? r.contract.split(" by ")[0] : null,
+    declarer,
+    tricks,
+    score: r?.score ?? 0,
+    passedOut: r?.passedOut ?? false,
+  };
+}
+
+/** "1S" -> "1♠", "3NT" -> "3NT", "4HX" -> "4♥X". Doubling suffix kept. */
+export function contractSymbol(contract: string): string {
+  const m = contract.match(/^(\d)(NT|[CDHS])(X{0,2})$/);
+  if (!m) return contract;
+  const [, level, strain, dbl] = m;
+  return `${level}${strain === "NT" ? "NT" : SUIT_SYMBOL[strain]}${dbl}`;
+}
+
+export interface HistoryRow {
+  board: number;
+  result: string; // "1♠ S +1", or "passed out"
+  red: boolean; // trump strain is hearts or diamonds
+  scoreNS: string; // "420" or "–"
+  scoreEW: string;
+}
+
+const DASH = "–";
+
+/** One display row of the History panel: contract + declarer + made/down,
+ *  and the raw score under whichever side came out ahead. */
+export function historyRow(b: BoardResult): HistoryRow {
+  if (b.passedOut || !b.contract || !b.declarer) {
+    return { board: b.board, result: "passed out", red: false, scoreNS: DASH, scoreEW: DASH };
+  }
+  const diff = b.tricks - (6 + Number(b.contract[0]));
+  const made = diff === 0 ? "=" : diff > 0 ? `+${diff}` : `${diff}`;
+  const nsAmount = b.declarer === "North" || b.declarer === "South" ? b.score : -b.score;
+  return {
+    board: b.board,
+    result: `${contractSymbol(b.contract)} ${SEAT_LETTER[b.declarer]} ${made}`,
+    red: b.contract[1] === "H" || b.contract[1] === "D",
+    scoreNS: nsAmount > 0 ? String(nsAmount) : DASH,
+    scoreEW: nsAmount < 0 ? String(-nsAmount) : DASH,
+  };
+}
+
 /** One-line summary of a finished board, shown during the pause before
  *  the next deal. */
 export function boardResultText(view: PlayerView): string {

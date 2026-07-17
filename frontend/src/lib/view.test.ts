@@ -3,8 +3,11 @@ import type { PlayerView } from "./protocol";
 import {
   auctionRows,
   boardResultText,
+  boardSummary,
   canPlay,
   cardFace,
+  contractSymbol,
+  historyRow,
   declarerSeat,
   groupHandBySuit,
   handCount,
@@ -119,6 +122,109 @@ describe("auctionRows", () => {
   });
   it("returns nothing for an empty auction", () => {
     expect(auctionRows([], "North")).toEqual([]);
+  });
+});
+
+describe("boardSummary", () => {
+  it("strips the declarer from the contract and takes that side's tricks", () => {
+    expect(
+      boardSummary(
+        view({
+          boardNumber: 3,
+          vulnerability: "EW",
+          contract: "3NT by North",
+          result: {
+            contract: "3NT by North",
+            declarer: "North",
+            tricksNS: 10,
+            tricksEW: 3,
+            score: 430,
+            passedOut: false,
+          },
+        }),
+      ),
+    ).toEqual({
+      board: 3,
+      vulnerability: "EW",
+      contract: "3NT",
+      declarer: "North",
+      tricks: 10,
+      score: 430,
+      passedOut: false,
+    });
+  });
+  it("uses EW tricks for an EW declarer", () => {
+    expect(
+      boardSummary(
+        view({
+          result: {
+            contract: "4S by West",
+            declarer: "West",
+            tricksNS: 4,
+            tricksEW: 9,
+            score: -50,
+            passedOut: false,
+          },
+        }),
+      ),
+    ).toMatchObject({ contract: "4S", declarer: "West", tricks: 9, score: -50 });
+  });
+  it("marks a passed-out board", () => {
+    expect(
+      boardSummary(
+        view({ boardNumber: 2, result: { tricksNS: 0, tricksEW: 0, score: 0, passedOut: true } }),
+      ),
+    ).toMatchObject({ board: 2, contract: null, declarer: null, passedOut: true });
+  });
+});
+
+describe("contractSymbol", () => {
+  it("swaps the strain letter for a suit symbol", () => {
+    expect(contractSymbol("1S")).toBe("1♠");
+    expect(contractSymbol("4H")).toBe("4♥");
+    expect(contractSymbol("6D")).toBe("6♦");
+    expect(contractSymbol("2C")).toBe("2♣");
+  });
+  it("keeps NT and any doubling suffix", () => {
+    expect(contractSymbol("3NT")).toBe("3NT");
+    expect(contractSymbol("4HX")).toBe("4♥X");
+    expect(contractSymbol("6DXX")).toBe("6♦XX");
+  });
+  it("passes odd input through", () => {
+    expect(contractSymbol("passed out")).toBe("passed out");
+  });
+});
+
+describe("historyRow", () => {
+  const base = { board: 1, vulnerability: "None", passedOut: false };
+
+  it("formats a made N/S contract with the score under NS", () => {
+    expect(
+      historyRow({ ...base, contract: "3NT", declarer: "North", tricks: 10, score: 430 }),
+    ).toEqual({ board: 1, result: "3NT N +1", red: false, scoreNS: "430", scoreEW: "–" });
+  });
+  it("shows '=' for an exactly-made contract", () => {
+    expect(
+      historyRow({ ...base, contract: "4S", declarer: "North", tricks: 10, score: 420 }),
+    ).toMatchObject({ result: "4♠ N =", scoreNS: "420", scoreEW: "–" });
+  });
+  it("puts a defeated N/S contract's penalty under EW", () => {
+    expect(
+      historyRow({ ...base, contract: "1NT", declarer: "South", tricks: 0, score: -700 }),
+    ).toMatchObject({ result: "1NT S -7", scoreNS: "–", scoreEW: "700" });
+  });
+  it("handles an E/W declarer both ways", () => {
+    expect(
+      historyRow({ ...base, contract: "4H", declarer: "West", tricks: 11, score: 450 }),
+    ).toMatchObject({ result: "4♥ W +1", red: true, scoreNS: "–", scoreEW: "450" });
+    expect(
+      historyRow({ ...base, contract: "2S", declarer: "East", tricks: 6, score: -100 }),
+    ).toMatchObject({ result: "2♠ E -2", scoreNS: "100", scoreEW: "–" });
+  });
+  it("marks a passed-out board", () => {
+    expect(
+      historyRow({ ...base, board: 2, contract: null, declarer: null, tricks: 0, score: 0, passedOut: true }),
+    ).toEqual({ board: 2, result: "passed out", red: false, scoreNS: "–", scoreEW: "–" });
   });
 });
 

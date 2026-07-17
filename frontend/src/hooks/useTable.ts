@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PlayerView, ServerMessage } from "@/lib/protocol";
 import { openTableSocket, type TableSocket } from "@/lib/ws";
-import { normalizeView } from "@/lib/view";
+import { boardSummary, normalizeView, type BoardResult } from "@/lib/view";
 
 export type TableStatus = "connecting" | "setup" | "live" | "closed" | "error";
 
@@ -14,6 +14,8 @@ export interface UseTable {
   view: PlayerView | null;
   status: TableStatus;
   error: string | null;
+  /** Finished boards at this table, oldest first. */
+  history: BoardResult[];
   bid: (call: string) => void;
   playCard: (card: string) => void;
 }
@@ -27,6 +29,7 @@ export function useTable(): UseTable {
   const [view, setView] = useState<PlayerView | null>(null);
   const [status, setStatus] = useState<TableStatus>("connecting");
   const [error, setError] = useState<string | null>(null);
+  const [history, setHistory] = useState<BoardResult[]>([]);
   const socketRef = useRef<TableSocket | null>(null);
   const nextBoardTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -49,9 +52,10 @@ export function useTable(): UseTable {
             const next = normalizeView(msg.payload as PlayerView);
             setView(next);
             setStatus("live");
-            // When a board finishes, deal the next one after a short
-            // pause so the result is readable.
+            // When a board finishes, record it and deal the next one
+            // after a short pause so the result is readable.
             if (next.phase === "Complete" && nextBoardTimer.current === null) {
+              setHistory((h) => [...h, boardSummary(next)]);
               nextBoardTimer.current = setTimeout(() => {
                 nextBoardTimer.current = null;
                 socket.send({ type: "start" });
@@ -92,5 +96,5 @@ export function useTable(): UseTable {
     socketRef.current?.send({ type: "play_card", card });
   }, []);
 
-  return { view, status, error, bid, playCard };
+  return { view, status, error, history, bid, playCard };
 }
