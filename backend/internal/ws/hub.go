@@ -59,12 +59,23 @@ func (h *Hub) RemoveTable(id string) {
 	delete(h.tables, id)
 }
 
+// reapIfEmpty drops a table once no live client connections remain
+// seated, stopping its bot goroutines. Guests can create tables
+// freely, so abandoned ones must not linger.
+func (h *Hub) reapIfEmpty(t *Table) {
+	if t.HasHumans() {
+		return
+	}
+	h.RemoveTable(t.ID)
+	t.Shutdown()
+}
+
 // HandleUpgrade upgrades an HTTP connection to a WebSocket and
 // starts the client read/write pumps.
 func (h *Hub) HandleUpgrade(w http.ResponseWriter, r *http.Request) {
-	// In production the /ws route is auth-gated, so a user ID is always
-	// present. Outside production the route is open, and guests get a
-	// throwaway ID — the table layer never reads it.
+	// A valid token cookie (via OptionalMiddleware) attaches the real
+	// user ID. Guests connect without one and get a throwaway ID that
+	// the table layer never reads.
 	userID, ok := auth.UserIDFromContext(r.Context())
 	if !ok {
 		userID = uuid.New()

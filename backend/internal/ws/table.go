@@ -21,6 +21,7 @@ type Table struct {
 	gameRepo  *repository.GameRepository
 	persisted bool
 	boardNum  int
+	closed    bool
 }
 
 func NewTable(id string, gameRepo *repository.GameRepository) *Table {
@@ -36,6 +37,9 @@ func (t *Table) Sit(p Player, dir game.Direction) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
+	if t.closed {
+		return fmt.Errorf("table is closed")
+	}
 	if _, taken := t.players[dir]; taken {
 		return fmt.Errorf("seat %v is taken", dir)
 	}
@@ -54,6 +58,9 @@ func (t *Table) SitBot(dir game.Direction, difficulty bot.Difficulty) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
+	if t.closed {
+		return fmt.Errorf("table is closed")
+	}
 	if _, taken := t.players[dir]; taken {
 		return fmt.Errorf("seat %v is taken", dir)
 	}
@@ -68,6 +75,9 @@ func (t *Table) Start(seed *int64) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
+	if t.closed {
+		return fmt.Errorf("table is closed")
+	}
 	if t.game != nil && t.game.Phase != game.PhaseComplete {
 		return fmt.Errorf("game already in progress")
 	}
@@ -132,6 +142,37 @@ func (t *Table) RemovePlayer(p Player) {
 			break
 		}
 	}
+}
+
+// HasHumans reports whether any seated player is a live client connection.
+func (t *Table) HasHumans() bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	for _, p := range t.players {
+		if _, ok := p.(*Client); ok {
+			return true
+		}
+	}
+	return false
+}
+
+// Shutdown closes the table's bot goroutines and clears its seats.
+// Idempotent; call after removing the table from the hub.
+func (t *Table) Shutdown() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	if t.closed {
+		return
+	}
+	t.closed = true
+	for _, p := range t.players {
+		if bc, ok := p.(*botClient); ok {
+			close(bc.send)
+		}
+	}
+	t.players = map[game.Direction]Player{}
 }
 
 // broadcastState sends each seated player their personalized game view.
