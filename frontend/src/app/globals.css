@@ -25,6 +25,9 @@
   --red: #c0554a;
   --up: #4f9b57;
   --dn: #c0554a;
+
+  /* vulnerability edges: danger = --red, safe = near-black */
+  --vul-safe: #0c0c0c;
 }
 
 /* ---- reset + base ---- */
@@ -294,7 +297,8 @@ button.xs,
 .bchip {
   width: 38px;
   height: 38px;
-  border: 1px solid var(--red);
+  /* per-side border colour is set inline from the board's vulnerability */
+  border: 2px solid var(--vul-safe);
   color: var(--red);
   display: grid;
   place-items: center;
@@ -331,6 +335,8 @@ button.xs,
   position: relative;
   background: #123c1d;
   overflow: hidden;
+  /* per-side border colour is set inline from the board's vulnerability */
+  border: 4px solid var(--vul-safe);
 }
 .mk {
   position: absolute;
