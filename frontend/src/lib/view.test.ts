@@ -19,6 +19,7 @@ import {
   normalizeView,
   partnerSeat,
   trickCardFor,
+  trickJustFinished,
 } from "./view";
 
 function view(overrides: Partial<PlayerView> = {}): PlayerView {
@@ -108,6 +109,24 @@ describe("trickCardFor", () => {
     const v = view({ currentTrick: [{ seat: "West", card: "HQ" }] });
     expect(trickCardFor(v, "West")).toBe("HQ");
     expect(trickCardFor(v, "North")).toBeUndefined();
+  });
+});
+
+describe("trickJustFinished", () => {
+  const done = (over: Partial<PlayerView>) =>
+    trickJustFinished(view({ phase: "Play", currentTrick: [], lastTrick: [{ seat: "West", card: "SA" }], ...over }));
+
+  it("is true between tricks in the play phase", () => {
+    expect(done({})).toBe(true);
+  });
+  it("is false once the next trick is led", () => {
+    expect(done({ currentTrick: [{ seat: "North", card: "S2" }] })).toBe(false);
+  });
+  it("is false with no completed trick", () => {
+    expect(done({ lastTrick: [] })).toBe(false);
+  });
+  it("is false outside the play phase", () => {
+    expect(done({ phase: "Complete" })).toBe(false);
   });
 });
 

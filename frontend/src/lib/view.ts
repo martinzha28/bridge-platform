@@ -104,6 +104,16 @@ export function trickCardFor(view: PlayerView, seat: Seat): string | undefined {
   return view.currentTrick.find((c) => c.seat === seat)?.card;
 }
 
+/** True for the view sent right as a trick finished: still in play, the
+ *  next trick not yet led, and a completed trick sitting on the table. */
+export function trickJustFinished(view: PlayerView): boolean {
+  return (
+    view.phase === "Play" &&
+    view.currentTrick.length === 0 &&
+    (view.lastTrick?.length ?? 0) > 0
+  );
+}
+
 export interface BoardResult {
   board: number;
   vulnerability: string;

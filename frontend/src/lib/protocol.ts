@@ -37,6 +37,7 @@ export interface PlayerView {
   dummyHand?: string[];
 
   currentTrick: PlayedCard[];
+  lastTrick?: PlayedCard[]; // the just-finished trick, still on the table
   tricksNS: number;
   tricksEW: number;
 

@@ -328,6 +328,9 @@ button.xs,
 /* ---- table: felt ---- */
 .felt-box {
   flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 .felt {
   flex: 1;
