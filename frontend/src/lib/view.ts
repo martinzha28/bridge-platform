@@ -197,6 +197,15 @@ export function boardResultText(view: PlayerView): string {
 
 // --- Vulnerability -------------------------------------------------------
 
+/** Trick counts from the viewer's side. */
+export function sideTricks(view: PlayerView): { ours: number; theirs: number } {
+  const ns = view.seat === "North" || view.seat === "South";
+  return {
+    ours: ns ? view.tricksNS : view.tricksEW,
+    theirs: ns ? view.tricksEW : view.tricksNS,
+  };
+}
+
 /** Is the seat's partnership vulnerable for this board? */
 export function seatVulnerable(seat: Seat, vulnerability: string): boolean {
   if (vulnerability === "Both") return true;

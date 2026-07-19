@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { PlayerView, ServerMessage } from "@/lib/protocol";
+import type { PlayedCard, PlayerView, ServerMessage } from "@/lib/protocol";
 import { openTableSocket, type TableSocket } from "@/lib/ws";
 import {
   boardSummary,
@@ -23,8 +23,10 @@ export interface UseTable {
   error: string | null;
   /** Finished boards at this table, oldest first. */
   history: BoardResult[];
-  /** True while a completed trick is held on the table. */
+  /** True while a finished trick is held on the table (auto-pause). */
   paused: boolean;
+  /** The most recently completed trick this board, or empty. */
+  lastCompletedTrick: PlayedCard[];
   bid: (call: string) => void;
   playCard: (card: string) => void;
 }
@@ -33,8 +35,8 @@ export interface UseTable {
  * Connects to the game socket and drives the fixed local setup:
  * create a table, sit South, fill N/E/W with bots, start board one.
  * From then on the returned `view` is whatever the backend last sent,
- * except that a just-completed trick is held on screen briefly before
- * catching up to live play.
+ * except that a finished trick is briefly held on screen before play
+ * catches up.
  */
 export function useTable(): UseTable {
   const [view, setView] = useState<PlayerView | null>(null);
@@ -42,17 +44,33 @@ export function useTable(): UseTable {
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<BoardResult[]>([]);
   const [paused, setPaused] = useState(false);
+  const [lastCompletedTrick, setLastCompletedTrick] = useState<PlayedCard[]>([]);
+
   const socketRef = useRef<TableSocket | null>(null);
   const nextBoardTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const trickHoldTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingView = useRef<PlayerView | null>(null);
 
   useEffect(() => {
-    // ingest applies a view and, if it lands right as a trick finished,
-    // freezes the screen for TRICK_PAUSE_MS while buffering later states.
+    // endHold releases the frozen screen and catches up to whatever
+    // state arrived while it was held.
+    function endHold() {
+      holdTimer.current = null;
+      setPaused(false);
+      const buffered = pendingView.current;
+      pendingView.current = null;
+      if (buffered) ingest(buffered);
+    }
+
     function ingest(next: PlayerView) {
       setView(next);
       setStatus("live");
+
+      if (next.phase === "Auction") {
+        setLastCompletedTrick([]);
+      } else if (next.lastTrick && next.lastTrick.length > 0) {
+        setLastCompletedTrick(next.lastTrick);
+      }
 
       if (next.phase === "Complete" && nextBoardTimer.current === null) {
         setHistory((h) => [...h, boardSummary(next)]);
@@ -65,13 +83,7 @@ export function useTable(): UseTable {
 
       if (trickJustFinished(next)) {
         setPaused(true);
-        trickHoldTimer.current = setTimeout(() => {
-          trickHoldTimer.current = null;
-          setPaused(false);
-          const buffered = pendingView.current;
-          pendingView.current = null;
-          if (buffered) ingest(buffered);
-        }, TRICK_PAUSE_MS);
+        holdTimer.current = setTimeout(endHold, TRICK_PAUSE_MS);
       }
     }
 
@@ -91,8 +103,8 @@ export function useTable(): UseTable {
             break;
           case "game_state": {
             const next = normalizeView(msg.payload as PlayerView);
-            if (trickHoldTimer.current !== null) {
-              pendingView.current = next; // caught up when the pause ends
+            if (holdTimer.current !== null) {
+              pendingView.current = next; // caught up when the hold ends
             } else {
               ingest(next);
             }
@@ -114,7 +126,7 @@ export function useTable(): UseTable {
     socketRef.current = socket;
 
     return () => {
-      for (const timer of [nextBoardTimer, trickHoldTimer]) {
+      for (const timer of [nextBoardTimer, holdTimer]) {
         if (timer.current !== null) {
           clearTimeout(timer.current);
           timer.current = null;
@@ -122,6 +134,7 @@ export function useTable(): UseTable {
       }
       pendingView.current = null;
       setPaused(false);
+      setLastCompletedTrick([]);
       socket.close();
       socketRef.current = null;
     };
@@ -135,5 +148,5 @@ export function useTable(): UseTable {
     socketRef.current?.send({ type: "play_card", card });
   }, []);
 
-  return { view, status, error, history, paused, bid, playCard };
+  return { view, status, error, history, paused, lastCompletedTrick, bid, playCard };
 }
