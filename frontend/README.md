@@ -1,5 +1,12 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Backend connection
+
+The `/table` page opens a WebSocket to the Go backend. It defaults to
+`ws://localhost:8080/ws`; override with `NEXT_PUBLIC_WS_URL` in `.env.local`.
+Outside production the backend accepts the connection as a guest (no login),
+so just have the backend running (`cd backend && make run`).
+
 ## Getting Started
 
 First, run the development server:

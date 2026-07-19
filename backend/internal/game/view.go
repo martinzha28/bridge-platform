@@ -30,6 +30,7 @@ type PlayerView struct {
 	DummyHand []string `json:"dummyHand,omitempty"`
 
 	CurrentTrick []PlayedCardView `json:"currentTrick"`
+	LastTrick    []PlayedCardView `json:"lastTrick,omitempty"`
 	TricksNS     int              `json:"tricksNS"`
 	TricksEW     int              `json:"tricksEW"`
 
@@ -83,6 +84,17 @@ func (g *Game) ViewFor(dir Direction) PlayerView {
 				Card: trick.Cards[i].String(),
 			})
 			trickDir = trickDir.Next()
+		}
+
+		if last := g.Play.lastCompletedTrick(); last != nil {
+			d := last.Leader
+			for i := 0; i < NumDirections; i++ {
+				v.LastTrick = append(v.LastTrick, PlayedCardView{
+					Seat: d.String(),
+					Card: last.Cards[i].String(),
+				})
+				d = d.Next()
+			}
 		}
 
 		v.TricksNS = g.Play.TricksNS

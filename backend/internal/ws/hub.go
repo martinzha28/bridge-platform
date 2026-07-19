@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/martinzha28/bridge-platform/backend/internal/auth"
 	"github.com/martinzha28/bridge-platform/backend/internal/repository"
@@ -58,13 +59,26 @@ func (h *Hub) RemoveTable(id string) {
 	delete(h.tables, id)
 }
 
+// reapIfEmpty drops a table once no live client connections remain
+// seated, stopping its bot goroutines. Guests can create tables
+// freely, so abandoned ones must not linger.
+func (h *Hub) reapIfEmpty(t *Table) {
+	if t.HasHumans() {
+		return
+	}
+	h.RemoveTable(t.ID)
+	t.Shutdown()
+}
+
 // HandleUpgrade upgrades an HTTP connection to a WebSocket and
 // starts the client read/write pumps.
 func (h *Hub) HandleUpgrade(w http.ResponseWriter, r *http.Request) {
+	// A valid token cookie (via OptionalMiddleware) attaches the real
+	// user ID. Guests connect without one and get a throwaway ID that
+	// the table layer never reads.
 	userID, ok := auth.UserIDFromContext(r.Context())
 	if !ok {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
-		return
+		userID = uuid.New()
 	}
 
 	conn, err := upgrader.Upgrade(w, r, nil)
