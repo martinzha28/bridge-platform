@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Rail from "@/components/Rail";
+import FriendsPanel from "@/components/FriendsPanel";
 
 export const metadata: Metadata = {
   title: "Bridge++ — Home",
@@ -43,6 +44,8 @@ export default function HomePage() {
           </div>
         </div>
       </div>
+
+      <FriendsPanel />
     </div>
   );
 }
