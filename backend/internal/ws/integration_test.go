@@ -47,7 +47,19 @@ func wsSend(t *testing.T, conn *websocket.Conn, msg ClientMessage) {
 	}
 }
 
+// wsRecv returns the next server message, skipping the asynchronous
+// table_state broadcasts (tests that care about those use wsRecvType).
 func wsRecv(t *testing.T, conn *websocket.Conn) ServerMessage {
+	t.Helper()
+	for {
+		msg := wsRecvRaw(t, conn)
+		if msg.Type != MsgTableState {
+			return msg
+		}
+	}
+}
+
+func wsRecvRaw(t *testing.T, conn *websocket.Conn) ServerMessage {
 	t.Helper()
 	conn.SetReadDeadline(time.Now().Add(2 * time.Second))
 	_, data, err := conn.ReadMessage()
@@ -59,6 +71,20 @@ func wsRecv(t *testing.T, conn *websocket.Conn) ServerMessage {
 		t.Fatalf("unmarshal: %v", err)
 	}
 	return msg
+}
+
+// wsRecvType reads until it gets a message of the wanted type.
+func wsRecvType(t *testing.T, conn *websocket.Conn, want string) ServerMessage {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		msg := wsRecvRaw(t, conn)
+		if msg.Type == want {
+			return msg
+		}
+	}
+	t.Fatalf("did not receive %q within timeout", want)
+	return ServerMessage{}
 }
 
 func TestWSCreateAndJoinTable(t *testing.T) {

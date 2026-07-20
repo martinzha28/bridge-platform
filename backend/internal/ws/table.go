@@ -18,6 +18,8 @@ type Table struct {
 	mu        sync.Mutex
 	game      *game.Game
 	players   map[game.Direction]Player
+	observers map[*Client]struct{} // clients watching the lobby / play
+	reapTimer *time.Timer
 	gameRepo  *repository.GameRepository
 	persisted bool
 	boardNum  int
@@ -26,11 +28,37 @@ type Table struct {
 
 func NewTable(id string, gameRepo *repository.GameRepository) *Table {
 	return &Table{
-		ID:       id,
-		players:  make(map[game.Direction]Player),
-		gameRepo: gameRepo,
-		boardNum: 1,
+		ID:        id,
+		players:   make(map[game.Direction]Player),
+		observers: make(map[*Client]struct{}),
+		gameRepo:  gameRepo,
+		boardNum:  1,
 	}
+}
+
+// AddObserver registers a client as watching this table and cancels any
+// pending reap. Safe to call more than once for the same client.
+func (t *Table) AddObserver(c *Client) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.reapTimer != nil {
+		t.reapTimer.Stop()
+		t.reapTimer = nil
+	}
+	t.observers[c] = struct{}{}
+}
+
+func (t *Table) RemoveObserver(c *Client) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	delete(t.observers, c)
+}
+
+// HasObservers reports whether any client is still watching the table.
+func (t *Table) HasObservers() bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return len(t.observers) > 0
 }
 
 func (t *Table) Sit(p Player, dir game.Direction) error {
@@ -51,6 +79,7 @@ func (t *Table) Sit(p Player, dir game.Direction) error {
 	}
 
 	t.players[dir] = p
+	t.broadcastTableState()
 	return nil
 }
 
@@ -68,6 +97,7 @@ func (t *Table) SitBot(dir game.Direction, difficulty bot.Difficulty) error {
 	bc := newBotClient(t, dir, bot.New(difficulty))
 	t.players[dir] = bc
 	go bc.run()
+	t.broadcastTableState()
 	return nil
 }
 
@@ -96,6 +126,7 @@ func (t *Table) Start(seed *int64) error {
 		return err
 	}
 
+	t.broadcastTableState()
 	t.broadcastState()
 	return nil
 }
@@ -142,19 +173,7 @@ func (t *Table) RemovePlayer(p Player) {
 			break
 		}
 	}
-}
-
-// HasHumans reports whether any seated player is a live client connection.
-func (t *Table) HasHumans() bool {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	for _, p := range t.players {
-		if _, ok := p.(*Client); ok {
-			return true
-		}
-	}
-	return false
+	t.broadcastTableState()
 }
 
 // Shutdown closes the table's bot goroutines and clears its seats.
@@ -167,12 +186,17 @@ func (t *Table) Shutdown() {
 		return
 	}
 	t.closed = true
+	if t.reapTimer != nil {
+		t.reapTimer.Stop()
+		t.reapTimer = nil
+	}
 	for _, p := range t.players {
 		if bc, ok := p.(*botClient); ok {
 			close(bc.send)
 		}
 	}
 	t.players = map[game.Direction]Player{}
+	t.observers = map[*Client]struct{}{}
 }
 
 // broadcastState sends each seated player their personalized game view.

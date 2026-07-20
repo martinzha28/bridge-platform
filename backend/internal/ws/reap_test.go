@@ -21,6 +21,7 @@ func waitUntil(t *testing.T, cond func() bool) {
 
 func TestTableReapedWhenLastHumanDisconnects(t *testing.T) {
 	hub := NewHub(nil)
+	hub.reapGrace = 20 * time.Millisecond
 	server := httptest.NewServer(http.HandlerFunc(hub.HandleUpgrade))
 	t.Cleanup(server.Close)
 
@@ -48,6 +49,7 @@ func TestTableReapedWhenLastHumanDisconnects(t *testing.T) {
 
 func TestTableKeptWhileAnotherHumanConnected(t *testing.T) {
 	hub := NewHub(nil)
+	hub.reapGrace = 20 * time.Millisecond
 	server := httptest.NewServer(http.HandlerFunc(hub.HandleUpgrade))
 	t.Cleanup(server.Close)
 

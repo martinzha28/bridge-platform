@@ -102,10 +102,12 @@ func (c *Client) handleMessage(msg ClientMessage) {
 	case MsgCreateTable:
 		table := c.hub.CreateTable()
 		c.table = table
+		table.AddObserver(c)
 		c.sendJSON(ServerMessage{
 			Type:    MsgTableCreated,
 			Payload: map[string]string{"tableID": table.ID},
 		})
+		table.BroadcastTableState()
 
 	case MsgJoinTable:
 		table, ok := c.hub.GetTable(msg.TableID)
@@ -114,10 +116,12 @@ func (c *Client) handleMessage(msg ClientMessage) {
 			return
 		}
 		c.table = table
+		table.AddObserver(c)
 		c.sendJSON(ServerMessage{
 			Type:    MsgTableJoined,
 			Payload: map[string]string{"tableID": table.ID},
 		})
+		table.BroadcastTableState()
 
 	case MsgSit:
 		if c.table == nil {
@@ -240,6 +244,7 @@ func (c *Client) sendError(message string) {
 
 func (c *Client) disconnect() {
 	if c.table != nil {
+		c.table.RemoveObserver(c)
 		c.table.RemovePlayer(c)
 		c.hub.reapIfEmpty(c.table)
 	}

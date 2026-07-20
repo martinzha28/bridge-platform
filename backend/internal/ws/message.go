@@ -13,6 +13,7 @@ const (
 	MsgTableJoined  = "table_joined"
 	MsgSeated       = "seated"
 	MsgGameState    = "game_state"
+	MsgTableState   = "table_state"
 	MsgError        = "error"
 )
 

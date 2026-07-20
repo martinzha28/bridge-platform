@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
@@ -22,15 +23,17 @@ var upgrader = websocket.Upgrader{
 }
 
 type Hub struct {
-	mu       sync.Mutex
-	tables   map[string]*Table
-	gameRepo *repository.GameRepository
+	mu        sync.Mutex
+	tables    map[string]*Table
+	gameRepo  *repository.GameRepository
+	reapGrace time.Duration // tests shrink this right after NewHub
 }
 
 func NewHub(gameRepo *repository.GameRepository) *Hub {
 	return &Hub{
-		tables:   make(map[string]*Table),
-		gameRepo: gameRepo,
+		tables:    make(map[string]*Table),
+		gameRepo:  gameRepo,
+		reapGrace: 30 * time.Second,
 	}
 }
 
@@ -59,15 +62,26 @@ func (h *Hub) RemoveTable(id string) {
 	delete(h.tables, id)
 }
 
-// reapIfEmpty drops a table once no live client connections remain
-// seated, stopping its bot goroutines. Guests can create tables
-// freely, so abandoned ones must not linger.
+// reapIfEmpty schedules a table for removal once no clients are watching
+// it, after a grace period (Hub.reapGrace) so a table survives a brief
+// gap — a page navigation, or an invite link opened just after the
+// creator closed their tab. AddObserver cancels a pending reap.
 func (h *Hub) reapIfEmpty(t *Table) {
-	if t.HasHumans() {
+	if t.HasObservers() {
 		return
 	}
-	h.RemoveTable(t.ID)
-	t.Shutdown()
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.reapTimer != nil {
+		return
+	}
+	t.reapTimer = time.AfterFunc(h.reapGrace, func() {
+		if t.HasObservers() {
+			return
+		}
+		h.RemoveTable(t.ID)
+		t.Shutdown()
+	})
 }
 
 // HandleUpgrade upgrades an HTTP connection to a WebSocket and
