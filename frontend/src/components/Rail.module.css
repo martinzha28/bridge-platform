@@ -1,0 +1,50 @@
+.rail {
+  width: 46px;
+  flex: none;
+  background: var(--rail);
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 0 12px;
+  gap: 1px;
+}
+.lg {
+  width: 32px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+.rb {
+  width: 34px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+}
+.rb:hover {
+  background: var(--line-soft);
+  color: var(--text);
+}
+.rb.on {
+  color: var(--accent);
+  background: var(--line-soft);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.sep {
+  width: 18px;
+  height: 1px;
+  background: var(--line);
+  margin: 5px 0;
+}
+.spacer {
+  flex: 1;
+}

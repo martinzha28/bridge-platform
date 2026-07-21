@@ -1,5 +1,7 @@
 import { Fragment } from "react";
 import Link from "next/link";
+import { cx } from "@/lib/cx";
+import styles from "./Rail.module.css";
 
 type RailKey =
   | "home"
@@ -43,7 +45,7 @@ const NAV_GROUPS: RailItem[][] = [
 const SETTINGS_ITEM: RailItem = { key: "settings", label: "Cf", title: "Settings" };
 
 function RailButton({ item, active }: { item: RailItem; active: boolean }) {
-  const className = active ? "rb on" : "rb";
+  const className = cx(styles.rb, active && styles.on);
   if (item.href) {
     return (
       <Link href={item.href} className={className} title={item.title}>
@@ -60,17 +62,17 @@ function RailButton({ item, active }: { item: RailItem; active: boolean }) {
 
 export default function Rail({ active }: { active?: RailKey }) {
   return (
-    <nav className="rail">
-      <div className="lg">&spades;</div>
+    <nav className={styles.rail}>
+      <div className={styles.lg}>&spades;</div>
       {NAV_GROUPS.map((group, i) => (
         <Fragment key={i}>
-          {i > 0 && <div className="rsep" />}
+          {i > 0 && <div className={styles.sep} />}
           {group.map((item) => (
             <RailButton key={item.key} item={item} active={active === item.key} />
           ))}
         </Fragment>
       ))}
-      <div className="rsp" />
+      <div className={styles.spacer} />
       <RailButton item={SETTINGS_ITEM} active={active === "settings"} />
     </nav>
   );

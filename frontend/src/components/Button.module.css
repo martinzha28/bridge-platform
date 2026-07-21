@@ -1,0 +1,35 @@
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text);
+  background: var(--elev);
+  border: 1px solid var(--line);
+  padding: 4px 11px;
+  cursor: pointer;
+}
+.btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--ink);
+}
+.primary:hover {
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--bg);
+}
+.sm {
+  font-size: 10.5px;
+  padding: 2px 8px;
+}
