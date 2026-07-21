@@ -59,6 +59,15 @@ export type ClientMessage =
   | { type: "bid"; call: string }
   | { type: "play_card"; card: string };
 
+export type SeatOccupant = "human" | "bot" | "";
+
+/** Lobby view of a table before/around the game starting. */
+export interface TableState {
+  tableID: string;
+  seats: Record<Seat, SeatOccupant>;
+  started: boolean;
+}
+
 // Server -> client
 export interface ServerMessage {
   type:
@@ -66,6 +75,7 @@ export interface ServerMessage {
     | "table_joined"
     | "seated"
     | "game_state"
+    | "table_state"
     | "error";
   payload?: unknown;
   error?: string;

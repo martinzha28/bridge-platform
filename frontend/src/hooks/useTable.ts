@@ -1,7 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { PlayedCard, PlayerView, ServerMessage } from "@/lib/protocol";
+import type {
+  PlayedCard,
+  PlayerView,
+  Seat,
+  ServerMessage,
+  TableState,
+} from "@/lib/protocol";
 import { openTableSocket, type TableSocket } from "@/lib/ws";
 import {
   boardSummary,
@@ -9,39 +15,56 @@ import {
   trickJustFinished,
   type BoardResult,
 } from "@/lib/view";
+import { seatPlan, type TableConfig } from "@/lib/tableConfig";
 
-export type TableStatus = "connecting" | "setup" | "live" | "closed" | "error";
+export type TableStatus =
+  | "connecting"
+  | "lobby"
+  | "live"
+  | "closed"
+  | "error";
 
 // How long the finished board stays on screen before the next deal.
 const NEXT_BOARD_DELAY_MS = 4000;
 // How long a completed trick sits on the table before play catches up.
 const TRICK_PAUSE_MS = 1500;
 
+const SEAT_LETTER: Record<Seat, "N" | "E" | "S" | "W"> = {
+  North: "N",
+  East: "E",
+  South: "S",
+  West: "W",
+};
+
+export interface UseTableOptions {
+  tableId: string;
+  config: TableConfig;
+  /** The creator — applies the seat plan and drives board advancement. */
+  isHost: boolean;
+}
+
 export interface UseTable {
   view: PlayerView | null;
+  tableState: TableState | null;
   status: TableStatus;
   error: string | null;
-  /** Finished boards at this table, oldest first. */
+  /** Set if the table id doesn't exist. */
+  joinError: string | null;
   history: BoardResult[];
-  /** True while a finished trick is held on the table (auto-pause). */
   paused: boolean;
-  /** The most recently completed trick this board, or empty. */
   lastCompletedTrick: PlayedCard[];
   bid: (call: string) => void;
   playCard: (card: string) => void;
+  sitAt: (dir: Seat) => void;
+  startGame: () => void;
 }
 
-/**
- * Connects to the game socket and drives the fixed local setup:
- * create a table, sit South, fill N/E/W with bots, start board one.
- * From then on the returned `view` is whatever the backend last sent,
- * except that a finished trick is briefly held on screen before play
- * catches up.
- */
-export function useTable(): UseTable {
+export function useTable({ tableId, config, isHost }: UseTableOptions): UseTable {
   const [view, setView] = useState<PlayerView | null>(null);
+  const [tableState, setTableState] = useState<TableState | null>(null);
   const [status, setStatus] = useState<TableStatus>("connecting");
   const [error, setError] = useState<string | null>(null);
+  const [joinError, setJoinError] = useState<string | null>(null);
   const [history, setHistory] = useState<BoardResult[]>([]);
   const [paused, setPaused] = useState(false);
   const [lastCompletedTrick, setLastCompletedTrick] = useState<PlayedCard[]>([]);
@@ -50,10 +73,11 @@ export function useTable(): UseTable {
   const nextBoardTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingView = useRef<PlayerView | null>(null);
+  const planApplied = useRef(false);
+  const configRef = useRef(config);
+  configRef.current = config;
 
   useEffect(() => {
-    // endHold releases the frozen screen and catches up to whatever
-    // state arrived while it was held.
     function endHold() {
       holdTimer.current = null;
       setPaused(false);
@@ -73,11 +97,17 @@ export function useTable(): UseTable {
       }
 
       if (next.phase === "Complete" && nextBoardTimer.current === null) {
-        setHistory((h) => [...h, boardSummary(next)]);
-        nextBoardTimer.current = setTimeout(() => {
-          nextBoardTimer.current = null;
-          socket.send({ type: "start" });
-        }, NEXT_BOARD_DELAY_MS);
+        setHistory((h) => {
+          const boards = h.length + 1;
+          const limit = configRef.current.boards;
+          if (isHost && (limit == null || boards < limit)) {
+            nextBoardTimer.current = setTimeout(() => {
+              nextBoardTimer.current = null;
+              socket.send({ type: "start" });
+            }, NEXT_BOARD_DELAY_MS);
+          }
+          return [...h, boardSummary(next)];
+        });
         return;
       }
 
@@ -87,31 +117,50 @@ export function useTable(): UseTable {
       }
     }
 
+    // The host seats itself + its bots the first time it sees the lobby.
+    function applyPlanOnce(state: TableState) {
+      if (planApplied.current || !isHost || state.started) return;
+      planApplied.current = true;
+      const plan = seatPlan(configRef.current);
+      if (plan.you) socket.send({ type: "sit", direction: SEAT_LETTER[plan.you] });
+      for (const b of plan.bots) {
+        socket.send({ type: "sit_bot", direction: SEAT_LETTER[b], difficulty: 1 });
+      }
+      if (plan.open.length === 0) socket.send({ type: "start" });
+    }
+
     const socket = openTableSocket({
       onOpen() {
-        setStatus("setup");
-        socket.send({ type: "create_table" });
+        setStatus("connecting");
+        socket.send({ type: "join_table", tableID: tableId });
       },
       onMessage(msg: ServerMessage) {
         switch (msg.type) {
-          case "table_created":
-            socket.send({ type: "sit", direction: "S" });
-            socket.send({ type: "sit_bot", direction: "N", difficulty: 1 });
-            socket.send({ type: "sit_bot", direction: "E", difficulty: 1 });
-            socket.send({ type: "sit_bot", direction: "W", difficulty: 1 });
-            socket.send({ type: "start" });
+          case "table_joined":
             break;
+          case "table_state": {
+            const state = msg.payload as TableState;
+            setTableState(state);
+            if (!state.started) setStatus("lobby");
+            applyPlanOnce(state);
+            break;
+          }
           case "game_state": {
             const next = normalizeView(msg.payload as PlayerView);
             if (holdTimer.current !== null) {
-              pendingView.current = next; // caught up when the hold ends
+              pendingView.current = next;
             } else {
               ingest(next);
             }
             break;
           }
           case "error":
-            setError(msg.error ?? "unknown error");
+            if (msg.error?.startsWith("table not found")) {
+              setJoinError("This table no longer exists.");
+              setStatus("error");
+            } else {
+              setError(msg.error ?? "unknown error");
+            }
             break;
         }
       },
@@ -133,20 +182,39 @@ export function useTable(): UseTable {
         }
       }
       pendingView.current = null;
+      planApplied.current = false;
       setPaused(false);
       setLastCompletedTrick([]);
       socket.close();
       socketRef.current = null;
     };
-  }, []);
+  }, [tableId, isHost]);
 
   const bid = useCallback((call: string) => {
     socketRef.current?.send({ type: "bid", call });
   }, []);
-
   const playCard = useCallback((card: string) => {
     socketRef.current?.send({ type: "play_card", card });
   }, []);
+  const sitAt = useCallback((dir: Seat) => {
+    socketRef.current?.send({ type: "sit", direction: SEAT_LETTER[dir] });
+  }, []);
+  const startGame = useCallback(() => {
+    socketRef.current?.send({ type: "start" });
+  }, []);
 
-  return { view, status, error, history, paused, lastCompletedTrick, bid, playCard };
+  return {
+    view,
+    tableState,
+    status,
+    error,
+    joinError,
+    history,
+    paused,
+    lastCompletedTrick,
+    bid,
+    playCard,
+    sitAt,
+    startGame,
+  };
 }

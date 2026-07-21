@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import Rail from "@/components/Rail";
 import BiddingBox from "@/components/BiddingBox";
 import Card from "@/components/Card";
 import { useTable, type TableStatus } from "@/hooks/useTable";
-import type { PlayedCard, PlayerView, Seat } from "@/lib/protocol";
+import type { PlayedCard, PlayerView, Seat, TableState } from "@/lib/protocol";
 import { SEATS } from "@/lib/protocol";
+import { DEFAULT_CONFIG, inviteUrl, loadConfig } from "@/lib/tableConfig";
 import {
   SEAT_LETTER,
   auctionColumns,
@@ -47,49 +49,187 @@ function statusLabel(status: TableStatus): string {
 }
 
 export default function TablePage() {
-  const { view, status, error, history, paused, lastCompletedTrick, bid, playCard } =
-    useTable();
+  const params = useParams<{ id: string }>();
+  const id = params.id;
+
+  // config + host flag come from /create via sessionStorage; a bare
+  // visitor (invite link) gets defaults and is not the host.
+  const { config, isHost } = useMemo(() => {
+    const stored = loadConfig(id);
+    return { config: stored ?? DEFAULT_CONFIG, isHost: stored !== null };
+  }, [id]);
+
+  const {
+    view,
+    tableState,
+    status,
+    error,
+    joinError,
+    history,
+    paused,
+    lastCompletedTrick,
+    bid,
+    playCard,
+    sitAt,
+    startGame,
+  } = useTable({ tableId: id, config, isHost });
+
   const [replayOpen, setReplayOpen] = useState(false);
   const canReplay = lastCompletedTrick.length > 0;
-
-  // close the replay popup when there's nothing to show (e.g. new board)
   useEffect(() => {
     if (!canReplay) setReplayOpen(false);
   }, [canReplay]);
+
+  if (joinError) {
+    return (
+      <div className="app">
+        <Rail active="play" />
+        <div className="center">
+          <div className="felt-box">
+            <div className="felt">
+              <div className="felt-msg">
+                {joinError}
+                <Link href="/create" className="btn xs" style={{ marginLeft: 10 }}>
+                  New table
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const inLobby = !view && tableState != null && !tableState.started;
 
   return (
     <div className="app">
       <Rail active="play" />
 
-      <div className="center">
-        <TableHeader
-          view={view}
-          canReplay={canReplay}
-          onReplay={() => setReplayOpen(true)}
-        />
-        <Felt
-          view={view}
-          status={status}
-          error={error}
-          paused={paused}
-          replayCards={replayOpen ? lastCompletedTrick : null}
-          onCloseReplay={() => setReplayOpen(false)}
-          onBid={bid}
-          onPlay={playCard}
-        />
-        <Plates view={view} />
-      </div>
+      {inLobby ? (
+        <Lobby tableId={id} tableState={tableState!} onSit={sitAt} onStart={startGame} />
+      ) : (
+        <>
+          <div className="center">
+            <TableHeader
+              view={view}
+              canReplay={canReplay}
+              onReplay={() => setReplayOpen(true)}
+            />
+            <Felt
+              view={view}
+              status={status}
+              error={error}
+              paused={paused}
+              replayCards={replayOpen ? lastCompletedTrick : null}
+              onCloseReplay={() => setReplayOpen(false)}
+              onBid={bid}
+              onPlay={playCard}
+            />
+            <Plates view={view} />
+          </div>
 
-      <div className="side">
-        <AuctionPanel view={view} />
-        <HistoryPanel history={history} />
+          <div className="side">
+            <AuctionPanel view={view} />
+            <HistoryPanel history={history} />
+            <div className="box">
+              <div className="bt">
+                <span className="t">Table chat</span>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function Lobby({
+  tableId,
+  tableState,
+  onSit,
+  onStart,
+}: {
+  tableId: string;
+  tableState: TableState;
+  onSit: (dir: Seat) => void;
+  onStart: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+  const link =
+    typeof window !== "undefined" ? inviteUrl(window.location.origin, tableId) : "";
+  const filled = SEATS.every((s) => tableState.seats[s] !== "");
+  const mine = SEATS.some((s) => tableState.seats[s] === "human"); // best-effort
+
+  function copy() {
+    navigator.clipboard?.writeText(link).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    }, () => {});
+  }
+
+  return (
+    <>
+      <div className="center">
         <div className="box">
-          <div className="bt">
-            <span className="t">Table chat</span>
+          <div className="thead">
+            <div className="bchip">–</div>
+            <h1>Waiting for players</h1>
+            <Link href="/" className="btn xs">
+              Leave
+            </Link>
+          </div>
+        </div>
+
+        <div className="felt-box">
+          <div className="felt">
+            {SEATS.map((seat) => {
+              const who = tableState.seats[seat];
+              return (
+                <div key={seat} className={`lobby-seat ${FELT_POS[seat]}`}>
+                  <b>{SEAT_LETTER[seat]}</b>
+                  {who === "" ? (
+                    <button type="button" className="btn xs" onClick={() => onSit(seat)}>
+                      Sit here
+                    </button>
+                  ) : (
+                    <span className="lobby-who">{who === "bot" ? "Bot" : "Player"}</span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
-    </div>
+
+      <div className="side">
+        <div className="box">
+          <div className="bt">
+            <span className="t">Invite</span>
+          </div>
+          <div className="create-form">
+            <div className="cf-link">
+              <input className="cf-input" readOnly value={link} />
+              <button type="button" className="btn xs" onClick={copy}>
+                {copied ? "Copied" : "Copy"}
+              </button>
+            </div>
+            <p className="cf-hint">
+              {filled ? "All seats filled." : "Share the link, or fill open seats."}
+            </p>
+            <button
+              type="button"
+              className="btn pri cf-create"
+              disabled={!filled}
+              onClick={onStart}
+            >
+              Start
+            </button>
+            {!mine && <p className="cf-hint">Take a seat to play.</p>}
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
 

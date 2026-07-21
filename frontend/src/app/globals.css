@@ -369,6 +369,151 @@ button.xs,
   font-size: 11.5px;
 }
 
+/* ---- create-a-table form (right side of /create) ---- */
+.create-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  overflow-y: auto;
+}
+.cf-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cf-field > span {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.cf-input {
+  font-family: inherit;
+  font-size: 13px;
+  padding: 6px 9px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+}
+.cf-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.pills {
+  display: flex;
+  gap: 6px;
+}
+.pill {
+  flex: 1;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 8px;
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  cursor: pointer;
+}
+.pill.on {
+  color: var(--ink);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.pill:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.cf-seats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.cf-seat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 4px;
+  font-family: inherit;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  cursor: pointer;
+}
+.cf-seat b {
+  font-size: 13px;
+  font-weight: 700;
+}
+.cf-seat span {
+  font-size: 10.5px;
+  color: var(--muted);
+}
+.cf-seat.role-you {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.cf-seat.role-you span {
+  color: var(--accent);
+}
+.cf-seat.role-open {
+  border-style: dashed;
+}
+.cf-hint {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.cf-link {
+  display: flex;
+  gap: 6px;
+}
+.cf-link .cf-input {
+  flex: 1;
+  min-width: 0;
+}
+.cf-create {
+  margin-top: 2px;
+  padding: 9px;
+  font-size: 13px;
+}
+
+/* ---- lobby (waiting room on /table/[id]) ---- */
+.lobby-seat {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  color: rgba(255, 255, 255, 0.85);
+}
+.lobby-seat.n {
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.lobby-seat.s {
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.lobby-seat.w {
+  left: 32px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.lobby-seat.e {
+  right: 32px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.lobby-seat b {
+  font-size: 13px;
+  letter-spacing: 0.1em;
+}
+.lobby-who {
+  font-size: 12px;
+}
+
 /* ---- table: columns ---- */
 .center {
   flex: 1;

@@ -25,7 +25,7 @@ type RailItem = {
 const NAV_GROUPS: RailItem[][] = [
   [
     { key: "home", label: "Hm", title: "Home", href: "/" },
-    { key: "play", label: "Pl", title: "Play", href: "/table" },
+    { key: "play", label: "Pl", title: "Play", href: "/create" },
     { key: "history", label: "Hi", title: "History" },
   ],
   [
