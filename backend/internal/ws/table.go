@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -15,6 +16,8 @@ import (
 
 type Table struct {
 	ID        string
+	name      string
+	description string
 	mu        sync.Mutex
 	game      *game.Game
 	players   map[game.Direction]Player
@@ -24,11 +27,14 @@ type Table struct {
 	persisted bool
 	boardNum  int
 	closed    bool
+	chatLog   []ChatMessageView
+	chatSeq   int64
 }
 
 func NewTable(id string, gameRepo *repository.GameRepository) *Table {
 	return &Table{
 		ID:        id,
+		name:      "Practice table",
 		players:   make(map[game.Direction]Player),
 		observers: make(map[*Client]struct{}),
 		gameRepo:  gameRepo,
@@ -160,6 +166,62 @@ func (t *Table) PlayCard(dir game.Direction, card game.Card) error {
 
 	t.broadcastState()
 	t.onCompleteOnce()
+	return nil
+}
+
+// SetName updates the table's display name and notifies watchers.
+// A blank name resets to the default; long names are truncated.
+func (t *Table) SetName(name string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	name = strings.TrimSpace(name)
+	if name == "" {
+		name = "Practice table"
+	}
+	if len(name) > 60 {
+		name = strings.TrimSpace(name[:60])
+	}
+	t.name = name
+	t.broadcastTableState()
+}
+
+// SetDescription updates the table's blurb and notifies watchers.
+func (t *Table) SetDescription(desc string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	desc = strings.TrimSpace(desc)
+	if len(desc) > 280 {
+		desc = strings.TrimSpace(desc[:280])
+	}
+	t.description = desc
+	t.broadcastTableState()
+}
+
+// RemoveBot vacates a seat held by a bot and stops its goroutine.
+// No-op if the seat is empty; errors if a human holds it or a game is live.
+func (t *Table) RemoveBot(dir game.Direction) error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	if t.closed {
+		return fmt.Errorf("table is closed")
+	}
+	if t.game != nil && t.game.Phase != game.PhaseComplete {
+		return fmt.Errorf("game already in progress")
+	}
+	p, ok := t.players[dir]
+	if !ok {
+		return nil
+	}
+	bc, ok := p.(*botClient)
+	if !ok {
+		return fmt.Errorf("seat %v is not a bot", dir)
+	}
+	delete(t.players, dir)
+	close(bc.send)
+	t.broadcastTableState()
 	return nil
 }
 

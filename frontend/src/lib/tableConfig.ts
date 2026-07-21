@@ -7,6 +7,8 @@ export type Visibility = "public" | "private";
 export type Scoring = "imps" | "matchpoints";
 
 export interface TableConfig {
+  name: string;
+  description: string;
   mode: Mode;
   visibility: Visibility;
   scoring: Scoring;
@@ -15,6 +17,8 @@ export interface TableConfig {
 }
 
 export const DEFAULT_CONFIG: TableConfig = {
+  name: "Practice table",
+  description: "",
   mode: "casual",
   visibility: "private",
   scoring: "imps",
@@ -37,20 +41,6 @@ export function boardsInput(boards: number | null): string {
   return boards == null ? "" : String(boards);
 }
 
-/** Move the "you" seat, demoting any previous one to a bot, and cycle
- *  a non-you seat you → bot → open → bot. */
-export function cycleSeat(seats: Record<Seat, SeatRole>, seat: Seat): Record<Seat, SeatRole> {
-  const next = { ...seats };
-  const order: SeatRole[] = ["you", "bot", "open"];
-  const current = next[seat];
-  const stepped = order[(order.indexOf(current) + 1) % order.length];
-  if (stepped === "you") {
-    for (const s of SEATS) if (next[s] === "you") next[s] = "bot";
-  }
-  next[seat] = stepped;
-  return next;
-}
-
 export interface SeatPlan {
   you: Seat | null;
   bots: Seat[];
@@ -63,11 +53,6 @@ export function seatPlan(config: TableConfig): SeatPlan {
     bots: SEATS.filter((s) => config.seats[s] === "bot"),
     open: SEATS.filter((s) => config.seats[s] === "open"),
   };
-}
-
-/** A config is playable when exactly one seat is "you". */
-export function configValid(config: TableConfig): boolean {
-  return SEATS.filter((s) => config.seats[s] === "you").length === 1;
 }
 
 export function inviteUrl(origin: string, tableId: string): string {

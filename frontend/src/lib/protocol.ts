@@ -55,15 +55,31 @@ export type ClientMessage =
   | { type: "join_table"; tableID: string }
   | { type: "sit"; direction: "N" | "E" | "S" | "W" }
   | { type: "sit_bot"; direction: "N" | "E" | "S" | "W"; difficulty: number }
+  | { type: "stand" }
+  | { type: "remove_bot"; direction: "N" | "E" | "S" | "W" }
+  | { type: "set_name"; name: string }
+  | { type: "set_description"; description: string }
+  | { type: "chat"; text: string }
   | { type: "start"; seed?: number }
   | { type: "bid"; call: string }
   | { type: "play_card"; card: string };
+
+/** One line of ephemeral table chat. */
+export interface ChatMessage {
+  id: number;
+  sender: string; // seat name ("West") or "Observer"
+  seat: Seat | ""; // "" for observers
+  text: string;
+  at: number; // unix millis
+}
 
 export type SeatOccupant = "human" | "bot" | "";
 
 /** Lobby view of a table before/around the game starting. */
 export interface TableState {
   tableID: string;
+  name: string;
+  description: string;
   seats: Record<Seat, SeatOccupant>;
   started: boolean;
 }
@@ -74,8 +90,11 @@ export interface ServerMessage {
     | "table_created"
     | "table_joined"
     | "seated"
+    | "stood"
     | "game_state"
     | "table_state"
+    | "chat_message"
+    | "chat_history"
     | "error";
   payload?: unknown;
   error?: string;

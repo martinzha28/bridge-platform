@@ -370,12 +370,30 @@ button.xs,
 }
 
 /* ---- create-a-table form (right side of /create) ---- */
+.create-box {
+  flex: 1;
+  min-height: 0;
+}
 .create-form {
   display: flex;
   flex-direction: column;
   gap: 14px;
   padding: 16px;
   overflow-y: auto;
+  flex: 1;
+}
+.cf-textarea {
+  resize: vertical;
+  min-height: 76px;
+  line-height: 1.45;
+}
+.lobby-desc {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--muted);
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 .cf-field {
   display: flex;
@@ -478,40 +496,32 @@ button.xs,
 }
 
 /* ---- lobby (waiting room on /table/[id]) ---- */
-.lobby-seat {
-  position: absolute;
+.seat-row {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 5px;
-  color: rgba(255, 255, 255, 0.85);
+  gap: 8px;
 }
-.lobby-seat.n {
-  top: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-}
-.lobby-seat.s {
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-}
-.lobby-seat.w {
-  left: 32px;
-  top: 50%;
-  transform: translateY(-50%);
-}
-.lobby-seat.e {
-  right: 32px;
-  top: 50%;
-  transform: translateY(-50%);
-}
-.lobby-seat b {
-  font-size: 13px;
-  letter-spacing: 0.1em;
-}
-.lobby-who {
+.seat-row-dir {
   font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  width: 16px;
+  flex: none;
+  color: var(--muted);
+}
+.seat-row-tag {
+  font-size: 13px;
+  color: var(--text);
+}
+.seat-row .pills {
+  flex: none;
+}
+.seat-row .pill {
+  flex: none;
+  padding: 4px 12px;
+}
+.seat-row .btn.xs {
+  margin-left: auto;
 }
 
 /* ---- table: columns ---- */
@@ -542,6 +552,54 @@ button.xs,
   flex: 1.3;
 }
 
+/* ---- table chat ---- */
+.chat-panel {
+  flex: 1;
+  min-height: 0;
+}
+.chat-log {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 12px;
+}
+.chat-row {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.35;
+  word-break: break-word;
+}
+.chat-from {
+  font-weight: 700;
+  margin-right: 6px;
+  color: var(--accent);
+}
+.chat-empty {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.chat-input-row {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--line);
+  flex: none;
+}
+.chat-input {
+  flex: 1;
+  min-width: 0;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  padding: 5px 8px;
+}
+
 /* ---- table: header ---- */
 .thead {
   display: flex;
@@ -570,6 +628,24 @@ button.xs,
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.thead h1.tname {
+  cursor: text;
+}
+.thead h1.tname:hover {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+.tname-input {
+  flex: 1;
+  min-width: 0;
+  font-size: 22px;
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  padding: 1px 6px;
 }
 /* trick counters: a portrait tile for our tricks, a landscape one for
    theirs — same footprint, transposed. Just the count. */
@@ -902,6 +978,24 @@ button:disabled,
 /* dummy revealed after the opening lead — a face-up row like your own hand */
 .seat.dummy {
   flex-direction: row;
+}
+/* a side dummy (you're defending) — anchor to its edge and tighten so
+   it stays clear of the centre trick */
+.seat.w.dummy {
+  transform: translateY(-50%);
+  top: 40%;
+}
+.seat.e.dummy {
+  transform: translateY(-50%);
+  top: 40%;
+}
+.seat.w.dummy .cf + .cf,
+.seat.e.dummy .cf + .cf {
+  margin-left: -34px;
+}
+.seat.w.dummy .grp,
+.seat.e.dummy .grp {
+  margin-right: 5px;
 }
 
 .plate.turn {

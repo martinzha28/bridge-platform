@@ -2,8 +2,6 @@ import { describe, it, expect } from "vitest";
 import {
   DEFAULT_CONFIG,
   boardsInput,
-  configValid,
-  cycleSeat,
   inviteUrl,
   parseBoards,
   seatPlan,
@@ -34,27 +32,6 @@ describe("boardsInput", () => {
   });
 });
 
-describe("cycleSeat", () => {
-  const seats = DEFAULT_CONFIG.seats; // S=you, rest=bot
-
-  it("cycles a seat you → bot → open → you", () => {
-    let s = seats;
-    s = cycleSeat(s, "North"); // bot → open
-    expect(s.North).toBe("open");
-    s = cycleSeat(s, "North"); // open → you
-    expect(s.North).toBe("you");
-    s = cycleSeat(s, "North"); // you → bot
-    expect(s.North).toBe("bot");
-  });
-  it("landing on 'you' demotes the previous 'you' to bot", () => {
-    let s = seats;
-    s = cycleSeat(s, "North"); // bot → open
-    s = cycleSeat(s, "North"); // open → you
-    expect(s.North).toBe("you");
-    expect(s.South).toBe("bot"); // was "you"
-  });
-});
-
 describe("seatPlan", () => {
   it("splits seats by role", () => {
     const plan = seatPlan({
@@ -62,18 +39,6 @@ describe("seatPlan", () => {
       seats: { South: "you", North: "bot", East: "open", West: "bot" },
     });
     expect(plan).toEqual({ you: "South", bots: ["North", "West"], open: ["East"] });
-  });
-});
-
-describe("configValid", () => {
-  it("requires exactly one 'you'", () => {
-    expect(configValid(DEFAULT_CONFIG)).toBe(true);
-    expect(
-      configValid({ ...DEFAULT_CONFIG, seats: { South: "bot", North: "bot", East: "bot", West: "bot" } }),
-    ).toBe(false);
-    expect(
-      configValid({ ...DEFAULT_CONFIG, seats: { South: "you", North: "you", East: "bot", West: "bot" } }),
-    ).toBe(false);
   });
 });
 

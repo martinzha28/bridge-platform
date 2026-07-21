@@ -1,18 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { SEATS, type Seat } from "@/lib/protocol";
-import {
-  boardsInput,
-  configValid,
-  cycleSeat,
-  inviteUrl,
-  parseBoards,
-  type TableConfig,
-} from "@/lib/tableConfig";
-
-const SEAT_LETTER: Record<Seat, string> = { North: "N", East: "E", South: "S", West: "W" };
-const ROLE_LABEL = { you: "You", bot: "Bot", open: "Open" } as const;
+import { boardsInput, parseBoards, type TableConfig } from "@/lib/tableConfig";
 
 function Pills<T extends string>({
   value,
@@ -40,42 +28,50 @@ function Pills<T extends string>({
   );
 }
 
+/** Step 1: table settings only. Seats are arranged in the lobby. */
 export default function CreateTableForm({
   config,
   onChange,
   tableId,
-  onCreate,
+  creating = false,
+  onContinue,
 }: {
   config: TableConfig;
   onChange: (c: TableConfig) => void;
   tableId: string | null;
-  onCreate: () => void;
+  creating?: boolean;
+  onContinue: () => void;
 }) {
-  const [copied, setCopied] = useState(false);
-  const link =
-    tableId && typeof window !== "undefined"
-      ? inviteUrl(window.location.origin, tableId)
-      : "";
-  const valid = configValid(config);
-
-  function copy() {
-    if (!link) return;
-    navigator.clipboard?.writeText(link).then(
-      () => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
-      },
-      () => {},
-    );
-  }
-
   return (
     <div className="box create-box">
       <div className="bt">
-        <span className="t">Create a Table</span>
+        <span className="t">Create a New Table</span>
       </div>
 
       <div className="create-form">
+        <label className="cf-field">
+          <span>Title</span>
+          <input
+            className="cf-input"
+            maxLength={60}
+            placeholder="Practice table"
+            value={config.name}
+            onChange={(e) => onChange({ ...config, name: e.target.value })}
+          />
+        </label>
+
+        <label className="cf-field">
+          <span>Description</span>
+          <textarea
+            className="cf-input cf-textarea"
+            maxLength={280}
+            rows={4}
+            placeholder="Optional — what's this table for?"
+            value={config.description}
+            onChange={(e) => onChange({ ...config, description: e.target.value })}
+          />
+        </label>
+
         <label className="cf-field">
           <span>Mode</span>
           <Pills
@@ -123,42 +119,19 @@ export default function CreateTableForm({
           />
         </label>
 
-        <div className="cf-field">
-          <span>Seats</span>
-          <div className="cf-seats">
-            {SEATS.map((seat) => (
-              <button
-                key={seat}
-                type="button"
-                className={`cf-seat role-${config.seats[seat]}`}
-                onClick={() => onChange({ ...config, seats: cycleSeat(config.seats, seat) })}
-              >
-                <b>{SEAT_LETTER[seat]}</b>
-                <span>{ROLE_LABEL[config.seats[seat]]}</span>
-              </button>
-            ))}
-          </div>
-          {!valid && <p className="cf-hint">Pick one seat for yourself.</p>}
-        </div>
-
-        <div className="cf-field">
-          <span>Invite link</span>
-          <div className="cf-link">
-            <input className="cf-input" readOnly value={link || "generating…"} />
-            <button type="button" className="btn xs" disabled={!link} onClick={copy}>
-              {copied ? "Copied" : "Copy"}
-            </button>
-          </div>
-        </div>
-
         <button
           type="button"
           className="btn pri cf-create"
-          disabled={!valid || !tableId}
-          onClick={onCreate}
+          disabled={!tableId || creating}
+          onClick={onContinue}
         >
-          Create Table
+          {creating ? "Creating…" : "Continue to seating →"}
         </button>
+        <p className="cf-hint">
+          {creating
+            ? "Setting up your table…"
+            : "Next: pick seats, add bots, and invite players."}
+        </p>
       </div>
     </div>
   );

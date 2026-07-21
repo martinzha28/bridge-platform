@@ -108,6 +108,7 @@ func (c *Client) handleMessage(msg ClientMessage) {
 			Payload: map[string]string{"tableID": table.ID},
 		})
 		table.BroadcastTableState()
+		table.SendChatHistory(c)
 
 	case MsgJoinTable:
 		table, ok := c.hub.GetTable(msg.TableID)
@@ -122,6 +123,7 @@ func (c *Client) handleMessage(msg ClientMessage) {
 			Payload: map[string]string{"tableID": table.ID},
 		})
 		table.BroadcastTableState()
+		table.SendChatHistory(c)
 
 	case MsgSit:
 		if c.table == nil {
@@ -172,6 +174,48 @@ func (c *Client) handleMessage(msg ClientMessage) {
 			Payload: map[string]string{"direction": dir.String(), "bot": "true"},
 		})
 
+	case MsgStand:
+		if c.table == nil {
+			c.sendError("join a table first")
+			return
+		}
+		c.table.RemovePlayer(Player(c))
+		c.seated = false
+		c.sendJSON(ServerMessage{Type: MsgStood})
+
+	case MsgRemoveBot:
+		if c.table == nil {
+			c.sendError("join a table first")
+			return
+		}
+		if len(msg.Direction) == 0 {
+			c.sendError("direction is required")
+			return
+		}
+		dir, ok := game.ParseDirection(msg.Direction[0])
+		if !ok {
+			c.sendError("invalid direction: " + msg.Direction)
+			return
+		}
+		if err := c.table.RemoveBot(dir); err != nil {
+			c.sendError(err.Error())
+			return
+		}
+
+	case MsgSetName:
+		if c.table == nil {
+			c.sendError("join a table first")
+			return
+		}
+		c.table.SetName(msg.Name)
+
+	case MsgSetDescription:
+		if c.table == nil {
+			c.sendError("join a table first")
+			return
+		}
+		c.table.SetDescription(msg.Description)
+
 	case MsgStart:
 		if c.table == nil || !c.seated {
 			c.sendError("not seated at a table")
@@ -211,6 +255,18 @@ func (c *Client) handleMessage(msg ClientMessage) {
 			c.sendError(err.Error())
 			return
 		}
+
+	case MsgChat:
+		if c.table == nil {
+			c.sendError("join a table first")
+			return
+		}
+		sender, seat := "Observer", ""
+		if c.seated {
+			sender = c.direction.String()
+			seat = c.direction.String()
+		}
+		c.table.Chat(sender, seat, msg.Text)
 
 	default:
 		c.sendError("unknown message type: " + msg.Type)

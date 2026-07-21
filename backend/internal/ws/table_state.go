@@ -11,9 +11,11 @@ import (
 // on any seat change, so the waiting room stays in sync before there is
 // any game_state to send.
 type TableStateView struct {
-	TableID string            `json:"tableID"`
-	Seats   map[string]string `json:"seats"` // direction -> "human" | "bot" | "" (open)
-	Started bool              `json:"started"`
+	TableID     string            `json:"tableID"`
+	Name        string            `json:"name"`
+	Description string            `json:"description"`
+	Seats       map[string]string `json:"seats"` // direction -> "human" | "bot" | "" (open)
+	Started     bool              `json:"started"`
 }
 
 var seatOrder = [game.NumDirections]game.Direction{
@@ -34,9 +36,11 @@ func (t *Table) tableStateView() TableStateView {
 		}
 	}
 	return TableStateView{
-		TableID: t.ID,
-		Seats:   seats,
-		Started: t.game != nil && t.game.Phase != game.PhaseDeal,
+		TableID:     t.ID,
+		Name:        t.name,
+		Description: t.description,
+		Seats:       seats,
+		Started:     t.game != nil && t.game.Phase != game.PhaseDeal,
 	}
 }
 

@@ -6,8 +6,15 @@ import { useParams } from "next/navigation";
 import Rail from "@/components/Rail";
 import BiddingBox from "@/components/BiddingBox";
 import Card from "@/components/Card";
+import ChatPanel from "@/components/ChatPanel";
 import { useTable, type TableStatus } from "@/hooks/useTable";
-import type { PlayedCard, PlayerView, Seat, TableState } from "@/lib/protocol";
+import type {
+  ChatMessage,
+  PlayedCard,
+  PlayerView,
+  Seat,
+  TableState,
+} from "@/lib/protocol";
 import { SEATS } from "@/lib/protocol";
 import { DEFAULT_CONFIG, inviteUrl, loadConfig } from "@/lib/tableConfig";
 import {
@@ -27,8 +34,18 @@ import {
   type BoardResult,
 } from "@/lib/view";
 
-const FELT_POS: Record<Seat, string> = { North: "n", East: "e", South: "s", West: "w" };
-const PLATE_ORDER: Seat[] = ["South", "West", "North", "East"];
+// Screen slot for a compass seat, rotated so the viewer is at the
+// bottom and the table turns clockwise from there.
+const SCREEN_SLOTS = ["s", "w", "n", "e"] as const;
+function screenSlot(seat: Seat, mySeat: Seat): (typeof SCREEN_SLOTS)[number] {
+  return SCREEN_SLOTS[(SEATS.indexOf(seat) - SEATS.indexOf(mySeat) + 4) % 4];
+}
+
+// Seats in plate order: the viewer first, then clockwise round the table.
+function plateOrder(mySeat: Seat): Seat[] {
+  const i = SEATS.indexOf(mySeat);
+  return [...SEATS.slice(i), ...SEATS.slice(0, i)];
+}
 
 const VUL_ON = "var(--red)";
 const VUL_OFF = "var(--vul-safe)";
@@ -68,11 +85,22 @@ export default function TablePage() {
     history,
     paused,
     lastCompletedTrick,
+    mySeat,
+    messages,
     bid,
     playCard,
     sitAt,
+    stand,
+    takeSeat,
+    addBot,
+    removeBot,
+    moveTo,
+    setName,
+    sendChat,
     startGame,
   } = useTable({ tableId: id, config, isHost });
+
+  const tableName = tableState?.name ?? "Practice table";
 
   const [replayOpen, setReplayOpen] = useState(false);
   const canReplay = lastCompletedTrick.length > 0;
@@ -100,6 +128,44 @@ export default function TablePage() {
     );
   }
 
+  // still opening the socket / joining — no lobby or game state yet
+  if (!view && tableState == null) {
+    return (
+      <div className="app">
+        <Rail active="play" />
+        <div className="center">
+          <div className="felt-box">
+            <div className="felt">
+              <div className="felt-msg">{error ?? "Joining table…"}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // a visitor who arrives after the game started (and never took a seat)
+  // can't join — the lobby is gone
+  if (!view && tableState?.started && mySeat == null && !isHost) {
+    return (
+      <div className="app">
+        <Rail active="play" />
+        <div className="center">
+          <div className="felt-box">
+            <div className="felt">
+              <div className="felt-msg">
+                This table is already in progress.
+                <Link href="/create" className="btn xs" style={{ marginLeft: 10 }}>
+                  Make your own table
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const inLobby = !view && tableState != null && !tableState.started;
 
   return (
@@ -107,12 +173,30 @@ export default function TablePage() {
       <Rail active="play" />
 
       {inLobby ? (
-        <Lobby tableId={id} tableState={tableState!} onSit={sitAt} onStart={startGame} />
+        <Lobby
+          tableId={id}
+          tableState={tableState!}
+          name={tableName}
+          mySeat={mySeat}
+          isHost={isHost}
+          messages={messages}
+          onSit={sitAt}
+          onSitHere={moveTo}
+          onTakeSeat={takeSeat}
+          onStand={stand}
+          onAddBot={addBot}
+          onRemoveBot={removeBot}
+          onStart={startGame}
+          onRename={setName}
+          onChat={sendChat}
+        />
       ) : (
         <>
           <div className="center">
             <TableHeader
               view={view}
+              name={tableName}
+              onRename={setName}
               canReplay={canReplay}
               onReplay={() => setReplayOpen(true)}
             />
@@ -132,11 +216,7 @@ export default function TablePage() {
           <div className="side">
             <AuctionPanel view={view} />
             <HistoryPanel history={history} />
-            <div className="box">
-              <div className="bt">
-                <span className="t">Table chat</span>
-              </div>
-            </div>
+            <ChatPanel messages={messages} onSend={sendChat} />
           </div>
         </>
       )}
@@ -144,22 +224,103 @@ export default function TablePage() {
   );
 }
 
+/** The table name, click to rename. Any seat can change it; the new
+ *  name is broadcast to everyone via table_state. */
+function EditableName({
+  name,
+  onRename,
+}: {
+  name: string;
+  onRename: (v: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(name);
+  useEffect(() => {
+    if (!editing) setDraft(name);
+  }, [name, editing]);
+
+  if (!editing) {
+    return (
+      <h1
+        className="tname"
+        title="Click to rename"
+        onClick={() => {
+          setDraft(name);
+          setEditing(true);
+        }}
+      >
+        {name}
+      </h1>
+    );
+  }
+
+  function commit() {
+    setEditing(false);
+    const v = draft.trim();
+    if (v && v !== name) onRename(v);
+  }
+
+  return (
+    <input
+      className="tname-input"
+      autoFocus
+      maxLength={60}
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") commit();
+        if (e.key === "Escape") {
+          setDraft(name);
+          setEditing(false);
+        }
+      }}
+    />
+  );
+}
+
 function Lobby({
   tableId,
   tableState,
+  name,
+  mySeat,
+  isHost,
+  messages,
   onSit,
+  onSitHere,
+  onTakeSeat,
+  onStand,
+  onAddBot,
+  onRemoveBot,
   onStart,
+  onRename,
+  onChat,
 }: {
   tableId: string;
   tableState: TableState;
+  name: string;
+  mySeat: Seat | null;
+  isHost: boolean;
+  messages: ChatMessage[];
   onSit: (dir: Seat) => void;
+  onSitHere: (dir: Seat) => void;
+  onTakeSeat: (dir: Seat) => void;
+  onStand: () => void;
+  onAddBot: (dir: Seat) => void;
+  onRemoveBot: (dir: Seat) => void;
   onStart: () => void;
+  onRename: (v: string) => void;
+  onChat: (text: string) => void;
 }) {
   const [copied, setCopied] = useState(false);
   const link =
     typeof window !== "undefined" ? inviteUrl(window.location.origin, tableId) : "";
-  const filled = SEATS.every((s) => tableState.seats[s] !== "");
-  const mine = SEATS.some((s) => tableState.seats[s] === "human"); // best-effort
+  const feltSeat = mySeat ?? "South";
+  const open = SEATS.filter((s) => tableState.seats[s] === "");
+  const filled = open.length === 0;
+  const startHint = filled
+    ? "All seats filled — ready when you are."
+    : `Waiting on ${open.map((s) => SEAT_LETTER[s]).join(", ")} — add a bot or a player.`;
 
   function copy() {
     navigator.clipboard?.writeText(link).then(() => {
@@ -168,13 +329,19 @@ function Lobby({
     }, () => {});
   }
 
+  function occupant(seat: Seat): string {
+    if (mySeat === seat) return "You";
+    const who = tableState.seats[seat];
+    return who === "bot" ? "Bot" : who === "human" ? "Player" : "Open";
+  }
+
   return (
     <>
       <div className="center">
         <div className="box">
           <div className="thead">
             <div className="bchip">–</div>
-            <h1>Waiting for players</h1>
+            <EditableName name={name} onRename={onRename} />
             <Link href="/" className="btn xs">
               Leave
             </Link>
@@ -183,51 +350,143 @@ function Lobby({
 
         <div className="felt-box">
           <div className="felt">
-            {SEATS.map((seat) => {
-              const who = tableState.seats[seat];
-              return (
-                <div key={seat} className={`lobby-seat ${FELT_POS[seat]}`}>
-                  <b>{SEAT_LETTER[seat]}</b>
-                  {who === "" ? (
-                    <button type="button" className="btn xs" onClick={() => onSit(seat)}>
-                      Sit here
-                    </button>
-                  ) : (
-                    <span className="lobby-who">{who === "bot" ? "Bot" : "Player"}</span>
-                  )}
-                </div>
-              );
-            })}
+            {SEATS.map((seat) => (
+              <span key={seat} className={`mk ${screenSlot(seat, feltSeat)}`}>
+                {SEAT_LETTER[seat]}
+              </span>
+            ))}
+            {SEATS.map((seat) => (
+              <div key={seat} className={`seat ${screenSlot(seat, feltSeat)}`}>
+                {Array.from({ length: 13 }).map((_, i) => (
+                  <Card key={i} />
+                ))}
+              </div>
+            ))}
           </div>
+        </div>
+
+        <div className="plates">
+          {plateOrder(feltSeat).map((seat) => (
+            <div
+              key={seat}
+              className={`plate${mySeat === seat ? " me" : ""}`}
+            >
+              <span className="st">{SEAT_LETTER[seat]}</span>
+              <div>
+                <b>{occupant(seat)}</b>
+                <div className="ck">
+                  {tableState.seats[seat] === "" ? "waiting" : ""}
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
       <div className="side">
         <div className="box">
           <div className="bt">
-            <span className="t">Invite</span>
+            <span className="t">Seats</span>
           </div>
           <div className="create-form">
-            <div className="cf-link">
-              <input className="cf-input" readOnly value={link} />
-              <button type="button" className="btn xs" onClick={copy}>
-                {copied ? "Copied" : "Copy"}
-              </button>
-            </div>
-            <p className="cf-hint">
-              {filled ? "All seats filled." : "Share the link, or fill open seats."}
-            </p>
+            {SEATS.map((seat) => {
+              const who = tableState.seats[seat];
+              const isMine = mySeat === seat;
+              return (
+                <div key={seat} className="seat-row">
+                  <span className="seat-row-dir">{SEAT_LETTER[seat]}</span>
+                  {isMine ? (
+                    <>
+                      <span className="seat-row-tag">You</span>
+                      {!isHost && (
+                        <button
+                          type="button"
+                          className="btn xs"
+                          onClick={onStand}
+                        >
+                          Stand up
+                        </button>
+                      )}
+                    </>
+                  ) : who === "human" ? (
+                    <span className="seat-row-tag">Player</span>
+                  ) : isHost ? (
+                    <>
+                      <div className="pills">
+                        <button
+                          type="button"
+                          className={`pill${who === "bot" ? " on" : ""}`}
+                          onClick={() => who !== "bot" && onAddBot(seat)}
+                        >
+                          Bot
+                        </button>
+                        <button
+                          type="button"
+                          className={`pill${who === "" ? " on" : ""}`}
+                          onClick={() => who !== "" && onRemoveBot(seat)}
+                        >
+                          Open
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn xs"
+                        onClick={() => onSitHere(seat)}
+                      >
+                        Sit here
+                      </button>
+                    </>
+                  ) : who === "bot" ? (
+                    <button
+                      type="button"
+                      className="btn xs"
+                      onClick={() => onTakeSeat(seat)}
+                    >
+                      Take seat
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn xs"
+                      onClick={() => onSit(seat)}
+                    >
+                      Sit here
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+
             <button
               type="button"
               className="btn pri cf-create"
               disabled={!filled}
               onClick={onStart}
             >
-              Start
+              Start game
             </button>
-            {!mine && <p className="cf-hint">Take a seat to play.</p>}
+            <p className="cf-hint">{startHint}</p>
           </div>
         </div>
+
+        <div className="box">
+          <div className="bt">
+            <span className="t">Invite</span>
+          </div>
+          <div className="create-form">
+            {tableState.description && (
+              <p className="lobby-desc">{tableState.description}</p>
+            )}
+            <div className="cf-link">
+              <input className="cf-input" readOnly value={link} />
+              <button type="button" className="btn xs" onClick={copy}>
+                {copied ? "Copied" : "Copy"}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <ChatPanel messages={messages} onSend={onChat} />
       </div>
     </>
   );
@@ -235,10 +494,14 @@ function Lobby({
 
 function TableHeader({
   view,
+  name,
+  onRename,
   canReplay,
   onReplay,
 }: {
   view: PlayerView | null;
+  name: string;
+  onRename: (v: string) => void;
   canReplay: boolean;
   onReplay: () => void;
 }) {
@@ -258,7 +521,7 @@ function TableHeader({
         >
           {view?.boardNumber ?? "–"}
         </div>
-        <h1>Practice table</h1>
+        <EditableName name={name} onRename={onRename} />
         <div className="tricks">
           <div className="tks tks-us" title="Tricks we've taken">
             <b>{ours}</b>
@@ -278,7 +541,7 @@ function TableHeader({
   );
 }
 
-function TrickCards({ cards }: { cards: PlayedCard[] }) {
+function TrickCards({ cards, mySeat }: { cards: PlayedCard[]; mySeat: Seat }) {
   return (
     <div className="trick">
       {cards.map((pc) => {
@@ -286,7 +549,7 @@ function TrickCards({ cards }: { cards: PlayedCard[] }) {
         return (
           <div
             key={pc.seat}
-            className={`pc ${FELT_POS[pc.seat]}${face.red ? " red" : ""}`}
+            className={`pc ${screenSlot(pc.seat, mySeat)}${face.red ? " red" : ""}`}
           >
             {face.rank}
             <i>{face.suit}</i>
@@ -320,6 +583,7 @@ function Felt({
   // nothing is playable while a finished trick is held on the table
   const legal = paused ? [] : (view?.legalCards ?? []);
   const { axis, cross } = vulEdges(view);
+  const mySeat: Seat = view?.seat ?? "South";
   // the live trick, or the just-finished one during the auto-pause
   const trick =
     view && view.currentTrick.length > 0
@@ -353,18 +617,25 @@ function Felt({
         {SEATS.map((seat) => (
           <span
             key={seat}
-            className={`mk ${FELT_POS[seat]}${view?.turn === seat ? " on" : ""}`}
+            className={`mk ${screenSlot(seat, mySeat)}${view?.turn === seat ? " on" : ""}`}
           >
             {SEAT_LETTER[seat]}
           </span>
         ))}
 
         {view &&
-          SEATS.filter((s) => s !== "South").map((seat) => (
-            <OpponentSeat key={seat} view={view} seat={seat} legal={legal} onPlay={onPlay} />
+          SEATS.filter((s) => s !== mySeat).map((seat) => (
+            <OpponentSeat
+              key={seat}
+              view={view}
+              seat={seat}
+              mySeat={mySeat}
+              legal={legal}
+              onPlay={onPlay}
+            />
           ))}
 
-        {trick.length > 0 && <TrickCards cards={trick} />}
+        {trick.length > 0 && <TrickCards cards={trick} mySeat={mySeat} />}
 
         {view && (
           <div className="seat s">
@@ -399,7 +670,7 @@ function Felt({
           <>
             <div className="replay-backdrop" onClick={onCloseReplay} />
             <div className="replay-box">
-              <TrickCards cards={replayCards} />
+              <TrickCards cards={replayCards} mySeat={mySeat} />
             </div>
           </>
         )}
@@ -411,15 +682,17 @@ function Felt({
 function OpponentSeat({
   view,
   seat,
+  mySeat,
   legal,
   onPlay,
 }: {
   view: PlayerView;
   seat: Seat;
+  mySeat: Seat;
   legal: string[];
   onPlay: (card: string) => void;
 }) {
-  const pos = FELT_POS[seat];
+  const pos = screenSlot(seat, mySeat);
 
   if (view.dummy === seat && view.dummyHand) {
     return (
@@ -450,12 +723,13 @@ function OpponentSeat({
 }
 
 function Plates({ view }: { view: PlayerView | null }) {
+  const mySeat: Seat = view?.seat ?? "South";
   return (
     <div className="plates">
-      {PLATE_ORDER.map((seat) => {
-        const me = seat === "South";
+      {plateOrder(mySeat).map((seat) => {
+        const me = seat === mySeat;
         const label = me ? "You" : `Bot ${SEAT_LETTER[seat]}`;
-        const sub = view?.dummy === seat ? "dummy" : me ? "south" : "bot · easy";
+        const sub = view?.dummy === seat ? "dummy" : me ? "you" : "bot · easy";
         return (
           <div
             key={seat}

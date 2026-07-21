@@ -21,12 +21,18 @@ function CardBacks({ count }: { count: number }) {
 }
 
 export default function CreatePage() {
-  const { tableId, status, error } = useTableDraft();
+  const { tableId, status, error, setName, setDescription } = useTableDraft();
   const [config, setConfig] = useState<TableConfig>(DEFAULT_CONFIG);
+  const [creating, setCreating] = useState(false);
   const router = useRouter();
 
-  function create() {
-    if (!tableId) return;
+  // Step 1 of 2: this page only captures table settings. Seating happens
+  // in the lobby. Flush the metadata to the server, then hand off.
+  function toSeating() {
+    if (!tableId || creating) return;
+    setCreating(true);
+    setName(config.name);
+    setDescription(config.description);
     storeConfig(tableId, config);
     router.push(`/table/${tableId}`);
   }
@@ -36,13 +42,6 @@ export default function CreatePage() {
       <Rail active="play" />
 
       <div className="center">
-        <div className="box">
-          <div className="thead">
-            <div className="bchip">–</div>
-            <h1>New table</h1>
-          </div>
-        </div>
-
         <div className="felt-box">
           <div className="felt">
             {SEATS.map((seat) => (
@@ -64,25 +63,13 @@ export default function CreatePage() {
             </div>
           </div>
         </div>
-
-        <div className="plates">
-          {SEATS.map((seat) => (
-            <div key={seat} className="plate">
-              <span className="st">{seat[0]}</span>
-              <div>
-                <b>—</b>
-                <div className="ck">empty</div>
-              </div>
-            </div>
-          ))}
-        </div>
       </div>
 
       <div className="side">
         {status === "error" ? (
-          <div className="box">
+          <div className="box create-box">
             <div className="bt">
-              <span className="t">Create a Table</span>
+              <span className="t">Create a New Table</span>
             </div>
             <div className="create-form">
               <p className="cf-hint">{error ?? "Couldn't reach the server."}</p>
@@ -93,7 +80,8 @@ export default function CreatePage() {
             config={config}
             onChange={setConfig}
             tableId={tableId}
-            onCreate={create}
+            creating={creating}
+            onContinue={toSeating}
           />
         )}
       </div>
