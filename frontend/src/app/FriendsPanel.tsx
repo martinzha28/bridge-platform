@@ -1,7 +1,8 @@
 "use client";
 
-import Link from "next/link";
+import Button from "@/components/Button";
 import { useAuth } from "@/hooks/useAuth";
+import styles from "./FriendsPanel.module.css";
 
 /**
  * Right-hand sidebar on the home page. There's no friends backend yet,
@@ -11,24 +12,24 @@ export default function FriendsPanel() {
   const { user, loading } = useAuth();
 
   return (
-    <aside className="fr">
-      <div className="fr-hd">
+    <aside className={styles.fr}>
+      <div className={styles.head}>
         <span className="micro">friends</span>
       </div>
 
       {!loading && !user && (
-        <div className="fr-guest">
-          <div className="fr-msg">
+        <div className={styles.guest}>
+          <div className={styles.msg}>
             <b>Guests can&apos;t add friends.</b>
             <p>Log in to connect with other players.</p>
           </div>
-          <div className="fr-cta">
-            <Link href="/login" className="btn xs">
+          <div className={styles.cta}>
+            <Button href="/login" size="sm">
               Log in
-            </Link>
-            <Link href="/signup" className="btn xs pri">
+            </Button>
+            <Button href="/signup" size="sm" variant="primary">
               Sign up
-            </Link>
+            </Button>
           </div>
         </div>
       )}

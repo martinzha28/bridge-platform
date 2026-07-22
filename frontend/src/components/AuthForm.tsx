@@ -3,7 +3,9 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import Button from "@/components/Button";
 import { login, signup } from "@/lib/auth";
+import styles from "./AuthForm.module.css";
 
 const CONFIG = {
   login: {
@@ -47,11 +49,11 @@ export default function AuthForm({ mode }: { mode: "login" | "signup" }) {
   }
 
   return (
-    <div className="auth">
-      <form className="box auth-card" onSubmit={onSubmit}>
+    <div className={styles.auth}>
+      <form className={styles.card} onSubmit={onSubmit}>
         <h1>{cfg.title}</h1>
 
-        <label className="auth-field">
+        <label className={styles.field}>
           <span>Username</span>
           <input
             value={username}
@@ -61,7 +63,7 @@ export default function AuthForm({ mode }: { mode: "login" | "signup" }) {
           />
         </label>
 
-        <label className="auth-field">
+        <label className={styles.field}>
           <span>Password</span>
           <input
             type="password"
@@ -72,17 +74,22 @@ export default function AuthForm({ mode }: { mode: "login" | "signup" }) {
           />
         </label>
 
-        {cfg.helper && <p className="auth-helper">{cfg.helper}</p>}
-        {error && <p className="auth-error">{error}</p>}
+        {cfg.helper && <p className={styles.helper}>{cfg.helper}</p>}
+        {error && <p className={styles.error}>{error}</p>}
 
-        <button type="submit" className="btn pri" disabled={busy}>
+        <Button
+          type="submit"
+          variant="primary"
+          className={styles.submit}
+          disabled={busy}
+        >
           {busy ? "…" : cfg.submit}
-        </button>
+        </Button>
 
-        <p className="auth-alt">
+        <p className={styles.alt}>
           {cfg.alt.prompt} <Link href={cfg.alt.href}>{cfg.alt.label}</Link>
         </p>
-        <Link href="/" className="auth-back">
+        <Link href="/" className={styles.back}>
           &larr; Back to Bridge++
         </Link>
       </form>
