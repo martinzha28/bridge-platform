@@ -18,6 +18,7 @@ export default function Button({
   className,
   href,
   type,
+  style,
   children,
   ...rest
 }: Props) {
@@ -30,14 +31,14 @@ export default function Button({
 
   if (href != null) {
     return (
-      <Link href={href} className={cls}>
+      <Link href={href} className={cls} style={style}>
         {children}
       </Link>
     );
   }
 
   return (
-    <button type={type ?? "button"} className={cls} {...rest}>
+    <button type={type ?? "button"} className={cls} style={style} {...rest}>
       {children}
     </button>
   );

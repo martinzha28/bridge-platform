@@ -1,3 +1,4 @@
+import { cx } from "@/lib/cx";
 import {
   BID_LEVELS,
   BID_STRAINS,
@@ -5,6 +6,7 @@ import {
   strainIsRed,
   strainLabel,
 } from "@/lib/view";
+import styles from "./BiddingBox.module.css";
 
 interface BiddingBoxProps {
   legalCalls: string[];
@@ -17,17 +19,17 @@ interface BiddingBoxProps {
  */
 export default function BiddingBox({ legalCalls, onBid }: BiddingBoxProps) {
   return (
-    <div className="bidbox" role="group" aria-label="Bidding box">
-      <div className="bidbox-grid">
+    <div className={styles.box} role="group" aria-label="Bidding box">
+      <div className={styles.grid}>
         {BID_LEVELS.map((level) => (
-          <div className="bidbox-row" key={level}>
+          <div className={styles.row} key={level}>
             {BID_STRAINS.map((strain) => {
               const call = `${level}${strain}`;
               return (
                 <button
                   key={strain}
                   type="button"
-                  className={`bidbtn${strainIsRed(strain) ? " red" : ""}`}
+                  className={cx(styles.btn, strainIsRed(strain) && styles.red)}
                   disabled={!hasCall(legalCalls, call)}
                   onClick={() => onBid(call)}
                 >
@@ -39,10 +41,10 @@ export default function BiddingBox({ legalCalls, onBid }: BiddingBoxProps) {
           </div>
         ))}
       </div>
-      <div className="bidbox-row">
+      <div className={styles.row}>
         <button
           type="button"
-          className="bidbtn wide"
+          className={cx(styles.btn, styles.wide)}
           disabled={!hasCall(legalCalls, "P")}
           onClick={() => onBid("P")}
         >
@@ -50,7 +52,7 @@ export default function BiddingBox({ legalCalls, onBid }: BiddingBoxProps) {
         </button>
         <button
           type="button"
-          className="bidbtn wide"
+          className={cx(styles.btn, styles.wide)}
           disabled={!hasCall(legalCalls, "X")}
           onClick={() => onBid("X")}
         >
@@ -58,7 +60,7 @@ export default function BiddingBox({ legalCalls, onBid }: BiddingBoxProps) {
         </button>
         <button
           type="button"
-          className="bidbtn wide"
+          className={cx(styles.btn, styles.wide)}
           disabled={!hasCall(legalCalls, "XX")}
           onClick={() => onBid("XX")}
         >

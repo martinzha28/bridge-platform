@@ -12,6 +12,8 @@ import EditableName from "./EditableName";
 import SeatsPanel from "./SeatsPanel";
 import InvitePanel from "./InvitePanel";
 import styles from "./Lobby.module.css";
+import felt from "@/components/felt.module.css";
+import plates from "./Plates.module.css";
 
 export default function Lobby({
   tableId,
@@ -67,15 +69,21 @@ export default function Lobby({
           </div>
         </Panel>
 
-        <div className="felt-box">
-          <div className="felt">
+        <div className={felt.feltBox}>
+          <div className={felt.felt}>
             {SEATS.map((seat) => (
-              <span key={seat} className={`mk ${screenSlot(seat, feltSeat)}`}>
+              <span
+                key={seat}
+                className={cx(felt.mk, felt[screenSlot(seat, feltSeat)])}
+              >
                 {SEAT_LETTER[seat]}
               </span>
             ))}
             {SEATS.map((seat) => (
-              <div key={seat} className={`seat ${screenSlot(seat, feltSeat)}`}>
+              <div
+                key={seat}
+                className={cx(felt.seat, felt[screenSlot(seat, feltSeat)])}
+              >
                 {Array.from({ length: 13 }).map((_, i) => (
                   <Card key={i} />
                 ))}
@@ -84,13 +92,16 @@ export default function Lobby({
           </div>
         </div>
 
-        <div className="plates">
+        <div className={plates.plates}>
           {plateOrder(feltSeat).map((seat) => (
-            <div key={seat} className={cx("plate", mySeat === seat && "me")}>
-              <span className="st">{SEAT_LETTER[seat]}</span>
+            <div
+              key={seat}
+              className={cx(plates.plate, mySeat === seat && plates.me)}
+            >
+              <span className={plates.st}>{SEAT_LETTER[seat]}</span>
               <div>
                 <b>{occupant(seat)}</b>
-                <div className="ck">
+                <div className={plates.ck}>
                   {tableState.seats[seat] === "" ? "waiting" : ""}
                 </div>
               </div>

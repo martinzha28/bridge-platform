@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Panel from "@/components/Panel";
+import Button from "@/components/Button";
 import type { ChatMessage } from "@/lib/protocol";
+import styles from "./ChatPanel.module.css";
 
 /** Ephemeral table chat: recent scrollback plus a send box. Open to
  *  everyone at the table in every phase. */
@@ -29,27 +32,23 @@ export default function ChatPanel({
   }
 
   return (
-    <div className="box chat-panel">
-      <div className="bt">
-        <span className="t">Table chat</span>
-      </div>
-
-      <div className="chat-log" ref={logRef}>
+    <Panel title="Table chat" className={styles.panel}>
+      <div className={styles.log} ref={logRef}>
         {messages.length === 0 ? (
-          <p className="chat-empty">No messages yet.</p>
+          <p className={styles.empty}>No messages yet.</p>
         ) : (
           messages.map((m) => (
-            <p key={m.id} className="chat-row">
-              <b className="chat-from">{m.sender}</b>
+            <p key={m.id} className={styles.row}>
+              <b className={styles.from}>{m.sender}</b>
               <span>{m.text}</span>
             </p>
           ))
         )}
       </div>
 
-      <div className="chat-input-row">
+      <div className={styles.inputRow}>
         <input
-          className="chat-input"
+          className={styles.input}
           value={draft}
           maxLength={500}
           placeholder="Say something…"
@@ -58,10 +57,10 @@ export default function ChatPanel({
             if (e.key === "Enter") send();
           }}
         />
-        <button type="button" className="btn xs" disabled={!draft.trim()} onClick={send}>
+        <Button size="sm" disabled={!draft.trim()} onClick={send}>
           Send
-        </button>
+        </Button>
       </div>
-    </div>
+    </Panel>
   );
 }

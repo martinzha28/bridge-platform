@@ -1,0 +1,268 @@
+/* The playing-table visual language: the green felt, the four seats, the
+   card faces/backs and how they fan, the centre trick, and felt overlays.
+   Shared by the play view, the lobby, and the /create preview. */
+
+.feltBox {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.felt {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  background: #123c1d;
+  overflow: hidden;
+  /* per-side border colour is set inline from the board's vulnerability */
+  border: 4px solid var(--vul-safe);
+}
+.felt.drop {
+  outline: 2px dashed #8fe0a4;
+  outline-offset: -6px;
+}
+
+/* seat markers (N/E/S/W initials at the felt corners) */
+.mk {
+  position: absolute;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: rgba(255, 255, 255, 0.72);
+  font-weight: 600;
+}
+.mk.on {
+  color: #8fe0a4;
+}
+.mk.n {
+  top: 10px;
+  left: 14px;
+}
+.mk.e {
+  top: 10px;
+  right: 14px;
+}
+.mk.s {
+  bottom: 10px;
+  right: 14px;
+}
+.mk.w {
+  bottom: 10px;
+  left: 14px;
+}
+
+/* the four seats */
+.seat {
+  position: absolute;
+  display: flex;
+  align-items: center;
+}
+.seat.n {
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.seat.s {
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.seat.w {
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  flex-direction: column;
+}
+.seat.e {
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  flex-direction: column;
+}
+
+/* card backs */
+.back {
+  width: 50px;
+  height: 72px;
+  border: 2px solid #f2f6ee;
+  background: #1b5228;
+  flex: none;
+  background-image: repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.16) 0 1px,
+      transparent 1px 6px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(255, 255, 255, 0.1) 0 1px,
+      transparent 1px 6px
+    );
+}
+.seat.n .back + .back,
+.seat.s .back + .back {
+  margin-left: -26px;
+}
+.seat.w .back,
+.seat.e .back {
+  width: 72px;
+  height: 50px;
+}
+.seat.w .back + .back,
+.seat.e .back + .back {
+  margin-top: -26px;
+}
+
+/* face-up cards: your hand and, once it comes down, dummy — suit groups
+   laid out horizontally */
+.grp {
+  display: flex;
+  margin-right: 9px;
+}
+.grp:last-child {
+  margin-right: 0;
+}
+.face {
+  width: 54px;
+  height: 76px;
+  border: 2px solid #f2f6ee;
+  background: #f2f6ee;
+  color: var(--cardink);
+  flex: none;
+  padding: 4px 0 0 5px;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.05;
+  cursor: default;
+}
+.face.red {
+  color: var(--red);
+}
+.face + .face {
+  margin-left: -20px;
+}
+.face i {
+  display: block;
+  font-style: normal;
+  font-size: 17px;
+  margin-top: 0;
+}
+.face.playable {
+  cursor: grab;
+}
+.face.playable:hover {
+  transform: translateY(-8px);
+  border-color: #8fe0a4;
+}
+
+/* dummy revealed after the opening lead — a face-up row like your own hand */
+.seat.dummy {
+  flex-direction: row;
+}
+/* a side dummy (you're defending) — anchor to its edge and tighten so it
+   stays clear of the centre trick */
+.seat.w.dummy,
+.seat.e.dummy {
+  transform: translateY(-50%);
+  top: 40%;
+}
+.seat.w.dummy .face + .face,
+.seat.e.dummy .face + .face {
+  margin-left: -34px;
+}
+.seat.w.dummy .grp,
+.seat.e.dummy .grp {
+  margin-right: 5px;
+}
+
+/* the trick in the middle of the felt */
+.trick {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 182px;
+  height: 200px;
+}
+.trick .pc {
+  position: absolute;
+  width: 54px;
+  height: 76px;
+  border: 2px solid #f2f6ee;
+  background: #f2f6ee;
+  color: var(--cardink);
+  font-size: 22px;
+  font-weight: 600;
+  padding: 4px 0 0 5px;
+  line-height: 1.05;
+}
+.trick .pc.red {
+  color: var(--red);
+}
+.trick .pc i {
+  display: block;
+  font-style: normal;
+  font-size: 17px;
+  margin-top: 0;
+}
+.trick .pc.n {
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%);
+}
+.trick .pc.s {
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+}
+.trick .pc.w {
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.trick .pc.e {
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* centred status / result text */
+.msg {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.msg.result {
+  z-index: 10;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  padding: 8px 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+/* replay popup: last trick in the top-right of the felt */
+.replayBackdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+}
+.replayBox {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 21;
+  padding: 10px;
+  background: var(--overlay);
+  border: 1px solid var(--line);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+.replayBox .trick {
+  position: relative;
+  left: auto;
+  top: auto;
+  transform: none;
+}

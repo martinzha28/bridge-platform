@@ -1,0 +1,46 @@
+.panel {
+  flex: 1.3;
+  min-height: 0;
+}
+.log {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 12px;
+}
+.row {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.35;
+  word-break: break-word;
+}
+.from {
+  font-weight: 700;
+  margin-right: 6px;
+  color: var(--accent);
+}
+.empty {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.inputRow {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--line);
+  flex: none;
+}
+.input {
+  flex: 1;
+  min-width: 0;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  padding: 5px 8px;
+}

@@ -1,4 +1,6 @@
 import { cardFace } from "@/lib/view";
+import { cx } from "@/lib/cx";
+import styles from "./felt.module.css";
 
 interface CardProps {
   /** Card code like "SA"; omit for a face-down back. */
@@ -9,16 +11,13 @@ interface CardProps {
 }
 
 export default function Card({ code, playable = false, onPlay }: CardProps) {
-  if (!code) return <div className="cb" />;
+  if (!code) return <div className={styles.back} />;
 
   const face = cardFace(code);
-  const className = ["cf", face.red && "red", playable && "playable"]
-    .filter(Boolean)
-    .join(" ");
 
   return (
     <div
-      className={className}
+      className={cx(styles.face, face.red && styles.red, playable && styles.playable)}
       draggable={playable}
       onDragStart={
         playable
