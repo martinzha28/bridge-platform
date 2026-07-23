@@ -25,3 +25,11 @@
   font-size: 13px;
   color: var(--muted);
 }
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  overflow-y: auto;
+  flex: 1;
+}

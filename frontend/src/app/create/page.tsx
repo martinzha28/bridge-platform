@@ -3,22 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Rail from "@/components/Rail";
-import CreateTableForm from "@/components/CreateTableForm";
+import Panel from "@/components/Panel";
+import CreateTableForm from "./CreateTableForm";
+import PlaceholderFelt from "./PlaceholderFelt";
 import { useTableDraft } from "@/hooks/useTableDraft";
-import { SEATS } from "@/lib/protocol";
 import { DEFAULT_CONFIG, storeConfig, type TableConfig } from "@/lib/tableConfig";
-
-const FELT_POS = { North: "n", East: "e", South: "s", West: "w" } as const;
-
-function CardBacks({ count }: { count: number }) {
-  return (
-    <>
-      {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="cb" />
-      ))}
-    </>
-  );
-}
+import styles from "./CreateTableForm.module.css";
 
 export default function CreatePage() {
   const { tableId, status, error, setName, setDescription } = useTableDraft();
@@ -42,39 +32,16 @@ export default function CreatePage() {
       <Rail active="play" />
 
       <div className="center">
-        <div className="felt-box">
-          <div className="felt">
-            {SEATS.map((seat) => (
-              <span key={seat} className={`mk ${FELT_POS[seat]}`}>
-                {seat[0]}
-              </span>
-            ))}
-            <div className="seat n">
-              <CardBacks count={13} />
-            </div>
-            <div className="seat w">
-              <CardBacks count={13} />
-            </div>
-            <div className="seat e">
-              <CardBacks count={13} />
-            </div>
-            <div className="seat s">
-              <CardBacks count={13} />
-            </div>
-          </div>
-        </div>
+        <PlaceholderFelt />
       </div>
 
       <div className="side">
         {status === "error" ? (
-          <div className="box create-box">
-            <div className="bt">
-              <span className="t">Create a New Table</span>
-            </div>
-            <div className="create-form">
-              <p className="cf-hint">{error ?? "Couldn't reach the server."}</p>
-            </div>
-          </div>
+          <Panel title="Create a New Table" padded className={styles.panel}>
+            <p className={styles.hint}>
+              {error ?? "Couldn't reach the server."}
+            </p>
+          </Panel>
         ) : (
           <CreateTableForm
             config={config}

@@ -7,6 +7,8 @@ import Rail from "@/components/Rail";
 import BiddingBox from "@/components/BiddingBox";
 import Card from "@/components/Card";
 import ChatPanel from "@/components/ChatPanel";
+import Lobby from "./Lobby";
+import EditableName from "./EditableName";
 import { useTable, type TableStatus } from "@/hooks/useTable";
 import type {
   ChatMessage,
@@ -27,43 +29,17 @@ import {
   groupHandBySuit,
   handCount,
   historyRow,
-  nextSeat,
   seatVulnerable,
   sideTricks,
   trumpSuit,
   type BoardResult,
 } from "@/lib/view";
-
-// Screen slot for a compass seat, rotated so the viewer is at the
-// bottom and the table turns clockwise from there.
-const SCREEN_SLOTS = ["s", "w", "n", "e"] as const;
-function screenSlot(seat: Seat, mySeat: Seat): (typeof SCREEN_SLOTS)[number] {
-  return SCREEN_SLOTS[(SEATS.indexOf(seat) - SEATS.indexOf(mySeat) + 4) % 4];
-}
-
-// Seats in plate order: the viewer first, then clockwise round the table.
-function plateOrder(mySeat: Seat): Seat[] {
-  const i = SEATS.indexOf(mySeat);
-  return [...SEATS.slice(i), ...SEATS.slice(0, i)];
-}
-
-const VUL_ON = "var(--red)";
-const VUL_OFF = "var(--vul-safe)";
-
-/** Edge colours from the viewer's seat: `axis` is the viewer's own
- *  partnership (top/bottom of the table), `cross` is the opponents
- *  (left/right). */
-function vulEdges(view: PlayerView | null): { axis: string; cross: string } {
-  if (!view) return { axis: VUL_OFF, cross: VUL_OFF };
-  return {
-    axis: seatVulnerable(view.seat, view.vulnerability) ? VUL_ON : VUL_OFF,
-    cross: seatVulnerable(nextSeat(view.seat), view.vulnerability) ? VUL_ON : VUL_OFF,
-  };
-}
-
-function statusLabel(status: TableStatus): string {
-  return status === "closed" ? "disconnected" : "connecting…";
-}
+import {
+  plateOrder,
+  screenSlot,
+  statusLabel,
+  vulEdges,
+} from "@/lib/table-view";
 
 export default function TablePage() {
   const params = useParams<{ id: string }>();
@@ -221,274 +197,6 @@ export default function TablePage() {
         </>
       )}
     </div>
-  );
-}
-
-/** The table name, click to rename. Any seat can change it; the new
- *  name is broadcast to everyone via table_state. */
-function EditableName({
-  name,
-  onRename,
-}: {
-  name: string;
-  onRename: (v: string) => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(name);
-  useEffect(() => {
-    if (!editing) setDraft(name);
-  }, [name, editing]);
-
-  if (!editing) {
-    return (
-      <h1
-        className="tname"
-        title="Click to rename"
-        onClick={() => {
-          setDraft(name);
-          setEditing(true);
-        }}
-      >
-        {name}
-      </h1>
-    );
-  }
-
-  function commit() {
-    setEditing(false);
-    const v = draft.trim();
-    if (v && v !== name) onRename(v);
-  }
-
-  return (
-    <input
-      className="tname-input"
-      autoFocus
-      maxLength={60}
-      value={draft}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={commit}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") commit();
-        if (e.key === "Escape") {
-          setDraft(name);
-          setEditing(false);
-        }
-      }}
-    />
-  );
-}
-
-function Lobby({
-  tableId,
-  tableState,
-  name,
-  mySeat,
-  isHost,
-  messages,
-  onSit,
-  onSitHere,
-  onTakeSeat,
-  onStand,
-  onAddBot,
-  onRemoveBot,
-  onStart,
-  onRename,
-  onChat,
-}: {
-  tableId: string;
-  tableState: TableState;
-  name: string;
-  mySeat: Seat | null;
-  isHost: boolean;
-  messages: ChatMessage[];
-  onSit: (dir: Seat) => void;
-  onSitHere: (dir: Seat) => void;
-  onTakeSeat: (dir: Seat) => void;
-  onStand: () => void;
-  onAddBot: (dir: Seat) => void;
-  onRemoveBot: (dir: Seat) => void;
-  onStart: () => void;
-  onRename: (v: string) => void;
-  onChat: (text: string) => void;
-}) {
-  const [copied, setCopied] = useState(false);
-  const link =
-    typeof window !== "undefined" ? inviteUrl(window.location.origin, tableId) : "";
-  const feltSeat = mySeat ?? "South";
-  const open = SEATS.filter((s) => tableState.seats[s] === "");
-  const filled = open.length === 0;
-  const startHint = filled
-    ? "All seats filled — ready when you are."
-    : `Waiting on ${open.map((s) => SEAT_LETTER[s]).join(", ")} — add a bot or a player.`;
-
-  function copy() {
-    navigator.clipboard?.writeText(link).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    }, () => {});
-  }
-
-  function occupant(seat: Seat): string {
-    if (mySeat === seat) return "You";
-    const who = tableState.seats[seat];
-    return who === "bot" ? "Bot" : who === "human" ? "Player" : "Open";
-  }
-
-  return (
-    <>
-      <div className="center">
-        <div className="box">
-          <div className="thead">
-            <div className="bchip">–</div>
-            <EditableName name={name} onRename={onRename} />
-            <Link href="/" className="btn xs">
-              Leave
-            </Link>
-          </div>
-        </div>
-
-        <div className="felt-box">
-          <div className="felt">
-            {SEATS.map((seat) => (
-              <span key={seat} className={`mk ${screenSlot(seat, feltSeat)}`}>
-                {SEAT_LETTER[seat]}
-              </span>
-            ))}
-            {SEATS.map((seat) => (
-              <div key={seat} className={`seat ${screenSlot(seat, feltSeat)}`}>
-                {Array.from({ length: 13 }).map((_, i) => (
-                  <Card key={i} />
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="plates">
-          {plateOrder(feltSeat).map((seat) => (
-            <div
-              key={seat}
-              className={`plate${mySeat === seat ? " me" : ""}`}
-            >
-              <span className="st">{SEAT_LETTER[seat]}</span>
-              <div>
-                <b>{occupant(seat)}</b>
-                <div className="ck">
-                  {tableState.seats[seat] === "" ? "waiting" : ""}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="side">
-        <div className="box">
-          <div className="bt">
-            <span className="t">Seats</span>
-          </div>
-          <div className="create-form">
-            {SEATS.map((seat) => {
-              const who = tableState.seats[seat];
-              const isMine = mySeat === seat;
-              return (
-                <div key={seat} className="seat-row">
-                  <span className="seat-row-dir">{SEAT_LETTER[seat]}</span>
-                  {isMine ? (
-                    <>
-                      <span className="seat-row-tag">You</span>
-                      {!isHost && (
-                        <button
-                          type="button"
-                          className="btn xs"
-                          onClick={onStand}
-                        >
-                          Stand up
-                        </button>
-                      )}
-                    </>
-                  ) : who === "human" ? (
-                    <span className="seat-row-tag">Player</span>
-                  ) : isHost ? (
-                    <>
-                      <div className="pills">
-                        <button
-                          type="button"
-                          className={`pill${who === "bot" ? " on" : ""}`}
-                          onClick={() => who !== "bot" && onAddBot(seat)}
-                        >
-                          Bot
-                        </button>
-                        <button
-                          type="button"
-                          className={`pill${who === "" ? " on" : ""}`}
-                          onClick={() => who !== "" && onRemoveBot(seat)}
-                        >
-                          Open
-                        </button>
-                      </div>
-                      <button
-                        type="button"
-                        className="btn xs"
-                        onClick={() => onSitHere(seat)}
-                      >
-                        Sit here
-                      </button>
-                    </>
-                  ) : who === "bot" ? (
-                    <button
-                      type="button"
-                      className="btn xs"
-                      onClick={() => onTakeSeat(seat)}
-                    >
-                      Take seat
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      className="btn xs"
-                      onClick={() => onSit(seat)}
-                    >
-                      Sit here
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-
-            <button
-              type="button"
-              className="btn pri cf-create"
-              disabled={!filled}
-              onClick={onStart}
-            >
-              Start game
-            </button>
-            <p className="cf-hint">{startHint}</p>
-          </div>
-        </div>
-
-        <div className="box">
-          <div className="bt">
-            <span className="t">Invite</span>
-          </div>
-          <div className="create-form">
-            {tableState.description && (
-              <p className="lobby-desc">{tableState.description}</p>
-            )}
-            <div className="cf-link">
-              <input className="cf-input" readOnly value={link} />
-              <button type="button" className="btn xs" onClick={copy}>
-                {copied ? "Copied" : "Copy"}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <ChatPanel messages={messages} onSend={onChat} />
-      </div>
-    </>
   );
 }
 

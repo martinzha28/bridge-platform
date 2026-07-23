@@ -6,11 +6,14 @@ import styles from "./Panel.module.css";
 export default function Panel({
   title,
   aside,
+  padded,
   className,
   children,
 }: {
   title?: ReactNode;
   aside?: ReactNode;
+  /** Wrap children in a padded, scrollable column. */
+  padded?: boolean;
   className?: string;
   children?: ReactNode;
 }) {
@@ -22,7 +25,7 @@ export default function Panel({
           {aside != null && <span className={styles.aside}>{aside}</span>}
         </div>
       )}
-      {children}
+      {padded ? <div className={styles.body}>{children}</div> : children}
     </div>
   );
 }

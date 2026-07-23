@@ -18,6 +18,10 @@
   background: var(--accent);
   border-color: var(--accent);
 }
+.compact {
+  flex: none;
+  padding: 4px 12px;
+}
 .pill:disabled {
   opacity: 0.4;
   cursor: default;

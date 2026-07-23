@@ -1,8 +1,13 @@
 "use client";
 
+import Panel from "@/components/Panel";
+import Button from "@/components/Button";
+import { Field, Input, Textarea } from "@/components/Field";
+import { Pill, PillGroup } from "@/components/Pill";
 import { boardsInput, parseBoards, type TableConfig } from "@/lib/tableConfig";
+import styles from "./CreateTableForm.module.css";
 
-function Pills<T extends string>({
+function Choice<T extends string>({
   value,
   options,
   onChange,
@@ -12,19 +17,18 @@ function Pills<T extends string>({
   onChange: (v: T) => void;
 }) {
   return (
-    <div className="pills">
+    <PillGroup>
       {options.map((o) => (
-        <button
+        <Pill
           key={o.value}
-          type="button"
           disabled={o.disabled}
-          className={`pill${value === o.value ? " on" : ""}`}
+          active={value === o.value}
           onClick={() => onChange(o.value)}
         >
           {o.label}
-        </button>
+        </Pill>
       ))}
-    </div>
+    </PillGroup>
   );
 }
 
@@ -43,38 +47,28 @@ export default function CreateTableForm({
   onContinue: () => void;
 }) {
   return (
-    <div className="box create-box">
-      <div className="bt">
-        <span className="t">Create a New Table</span>
-      </div>
-
-      <div className="create-form">
-        <label className="cf-field">
-          <span>Title</span>
-          <input
-            className="cf-input"
+    <Panel title="Create a New Table" padded className={styles.panel}>
+      <Field label="Title">
+          <Input
             maxLength={60}
             placeholder="Practice table"
             value={config.name}
             onChange={(e) => onChange({ ...config, name: e.target.value })}
           />
-        </label>
+        </Field>
 
-        <label className="cf-field">
-          <span>Description</span>
-          <textarea
-            className="cf-input cf-textarea"
+        <Field label="Description">
+          <Textarea
             maxLength={280}
             rows={4}
             placeholder="Optional — what's this table for?"
             value={config.description}
             onChange={(e) => onChange({ ...config, description: e.target.value })}
           />
-        </label>
+        </Field>
 
-        <label className="cf-field">
-          <span>Mode</span>
-          <Pills
+        <Field label="Mode">
+          <Choice
             value={config.mode}
             onChange={(mode) => onChange({ ...config, mode })}
             options={[
@@ -82,11 +76,10 @@ export default function CreateTableForm({
               { value: "competitive", label: "Competitive" },
             ]}
           />
-        </label>
+        </Field>
 
-        <label className="cf-field">
-          <span>Visibility</span>
-          <Pills
+        <Field label="Visibility">
+          <Choice
             value={config.visibility}
             onChange={(visibility) => onChange({ ...config, visibility })}
             options={[
@@ -94,11 +87,10 @@ export default function CreateTableForm({
               { value: "private", label: "Private" },
             ]}
           />
-        </label>
+        </Field>
 
-        <label className="cf-field">
-          <span>Scoring</span>
-          <Pills
+        <Field label="Scoring">
+          <Choice
             value={config.scoring}
             onChange={(scoring) => onChange({ ...config, scoring })}
             options={[
@@ -106,33 +98,32 @@ export default function CreateTableForm({
               { value: "matchpoints", label: "Matchpoints", disabled: true },
             ]}
           />
-        </label>
+        </Field>
 
-        <label className="cf-field">
-          <span>Boards</span>
-          <input
-            className="cf-input"
+        <Field label="Boards">
+          <Input
             inputMode="numeric"
             placeholder="unlimited"
             value={boardsInput(config.boards)}
-            onChange={(e) => onChange({ ...config, boards: parseBoards(e.target.value) })}
+            onChange={(e) =>
+              onChange({ ...config, boards: parseBoards(e.target.value) })
+            }
           />
-        </label>
+        </Field>
 
-        <button
-          type="button"
-          className="btn pri cf-create"
+        <Button
+          variant="primary"
+          className={styles.submit}
           disabled={!tableId || creating}
           onClick={onContinue}
         >
           {creating ? "Creating…" : "Continue to seating →"}
-        </button>
-        <p className="cf-hint">
+        </Button>
+        <p className={styles.hint}>
           {creating
             ? "Setting up your table…"
             : "Next: pick seats, add bots, and invite players."}
         </p>
-      </div>
-    </div>
+    </Panel>
   );
 }

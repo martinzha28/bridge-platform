@@ -1,0 +1,25 @@
+.name {
+  font-size: 22px;
+  font-weight: 600;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: text;
+}
+.name:hover {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+.input {
+  flex: 1;
+  min-width: 0;
+  font-size: 22px;
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  padding: 1px 6px;
+}
