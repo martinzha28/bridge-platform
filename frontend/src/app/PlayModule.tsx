@@ -19,7 +19,7 @@ export default function PlayModule() {
             seat and deal.
           </p>
           <div className={styles.cta}>
-            <Button href="/create" variant="primary">
+            <Button href="/create" variant="primary" className={styles.ctaBtn}>
               Create Table
             </Button>
           </div>

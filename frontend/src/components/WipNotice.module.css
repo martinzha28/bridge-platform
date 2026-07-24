@@ -1,0 +1,23 @@
+.wip {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px dashed var(--line);
+  background: var(--panel);
+  color: var(--muted);
+}
+.wip svg {
+  flex: none;
+  margin-top: 1px;
+  color: var(--accent);
+}
+.wip p {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.4;
+}
+.wip b {
+  color: var(--text);
+  font-weight: 600;
+}

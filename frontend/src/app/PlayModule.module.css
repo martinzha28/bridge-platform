@@ -9,20 +9,24 @@
   padding: 20px 18px 18px;
 }
 .play h2 {
-  font-size: 19px;
+  font-size: 22px;
   font-weight: 700;
   letter-spacing: -0.01em;
   line-height: 1.25;
 }
 .play p {
   color: var(--muted);
-  margin-top: 6px;
+  margin-top: 8px;
   max-width: 52ch;
-  font-size: 12px;
+  font-size: 16px;
 }
 .cta {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-top: 14px;
+  margin-top: 16px;
+}
+.ctaBtn {
+  font-size: 14px;
+  padding: 8px 16px;
 }

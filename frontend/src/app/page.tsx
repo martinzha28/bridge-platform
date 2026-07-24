@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Rail from "@/components/Rail";
+import WipNotice from "@/components/WipNotice";
 import FriendsPanel from "./FriendsPanel";
 import PlayModule from "./PlayModule";
 import styles from "./home.module.css";
@@ -20,6 +21,7 @@ export default function HomePage() {
 
         <div className={styles.page}>
           <PlayModule />
+          <WipNotice />
         </div>
       </div>
 

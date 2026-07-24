@@ -1,6 +1,7 @@
 import { Fragment } from "react";
 import Link from "next/link";
 import { cx } from "@/lib/cx";
+import { RailIcon, SpadeIcon } from "@/components/icons";
 import styles from "./Rail.module.css";
 
 type RailKey =
@@ -17,45 +18,50 @@ type RailKey =
 
 type RailItem = {
   key: RailKey;
-  label: string;
   title: string;
   href?: string;
 };
 
 // Only Home and Play route anywhere; the rest are placeholders for
-// features that don't exist yet.
+// features that don't exist yet (rendered greyed out).
 const NAV_GROUPS: RailItem[][] = [
   [
-    { key: "home", label: "Hm", title: "Home", href: "/" },
-    { key: "play", label: "Pl", title: "Play", href: "/create" },
-    { key: "history", label: "Hi", title: "History" },
+    { key: "home", title: "Home", href: "/" },
+    { key: "play", title: "Play", href: "/create" },
+    { key: "history", title: "History" },
   ],
   [
-    { key: "puzzles", label: "Pz", title: "Puzzles" },
-    { key: "learn", label: "Ln", title: "Learn" },
-    { key: "watch", label: "Wa", title: "Watch" },
+    { key: "puzzles", title: "Puzzles" },
+    { key: "learn", title: "Learn" },
+    { key: "watch", title: "Watch" },
   ],
   [
-    { key: "news", label: "Nw", title: "News" },
-    { key: "friends", label: "Fr", title: "Friends" },
-    { key: "profile", label: "Me", title: "Profile" },
+    { key: "news", title: "News" },
+    { key: "friends", title: "Friends" },
+    { key: "profile", title: "Profile" },
   ],
 ];
 
-const SETTINGS_ITEM: RailItem = { key: "settings", label: "Cf", title: "Settings" };
+const SETTINGS_ITEM: RailItem = { key: "settings", title: "Settings" };
 
 function RailButton({ item, active }: { item: RailItem; active: boolean }) {
-  const className = cx(styles.rb, active && styles.on);
+  const className = cx(
+    styles.rb,
+    active && styles.on,
+    !item.href && styles.disabled,
+  );
+  const icon = <RailIcon name={item.key} />;
+
   if (item.href) {
     return (
       <Link href={item.href} className={className} title={item.title}>
-        {item.label}
+        {icon}
       </Link>
     );
   }
   return (
-    <div className={className} title={item.title}>
-      {item.label}
+    <div className={className} title={`${item.title} — coming soon`}>
+      {icon}
     </div>
   );
 }
@@ -63,7 +69,9 @@ function RailButton({ item, active }: { item: RailItem; active: boolean }) {
 export default function Rail({ active }: { active?: RailKey }) {
   return (
     <nav className={styles.rail}>
-      <div className={styles.lg}>&spades;</div>
+      <div className={styles.lg} title="Bridge++">
+        <SpadeIcon width={22} height={22} />
+      </div>
       {NAV_GROUPS.map((group, i) => (
         <Fragment key={i}>
           {i > 0 && <div className={styles.sep} />}

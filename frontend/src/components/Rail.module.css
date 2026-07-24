@@ -7,7 +7,7 @@
   flex-direction: column;
   align-items: center;
   padding: 8px 0 12px;
-  gap: 1px;
+  gap: 2px;
 }
 .lg {
   width: 32px;
@@ -15,22 +15,17 @@
   display: grid;
   place-items: center;
   color: var(--accent);
-  font-size: 16px;
   margin-bottom: 8px;
 }
 .rb {
   width: 34px;
-  height: 26px;
+  height: 30px;
   display: grid;
   place-items: center;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: var(--muted);
   cursor: pointer;
 }
-.rb:hover {
+.rb:not(.disabled):hover {
   background: var(--line-soft);
   color: var(--text);
 }
@@ -38,6 +33,11 @@
   color: var(--accent);
   background: var(--line-soft);
   box-shadow: inset 2px 0 0 var(--accent);
+}
+.disabled {
+  color: var(--faint);
+  opacity: 0.4;
+  cursor: default;
 }
 .sep {
   width: 18px;
