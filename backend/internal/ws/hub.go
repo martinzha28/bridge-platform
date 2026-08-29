@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/martinzha28/bridge-platform/backend/internal/auth"
 	"github.com/martinzha28/bridge-platform/backend/internal/repository"
@@ -61,10 +62,12 @@ func (h *Hub) RemoveTable(id string) {
 // HandleUpgrade upgrades an HTTP connection to a WebSocket and
 // starts the client read/write pumps.
 func (h *Hub) HandleUpgrade(w http.ResponseWriter, r *http.Request) {
+	// In production the /ws route is auth-gated, so a user ID is always
+	// present. Outside production the route is open, and guests get a
+	// throwaway ID — the table layer never reads it.
 	userID, ok := auth.UserIDFromContext(r.Context())
 	if !ok {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
-		return
+		userID = uuid.New()
 	}
 
 	conn, err := upgrader.Upgrade(w, r, nil)
