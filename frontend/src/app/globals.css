@@ -664,6 +664,7 @@ button:disabled,
 
 /* ---- auction ladder (right panel) ---- */
 .scrolly {
+  flex: 1;
   overflow-y: auto;
   min-height: 0;
 }
