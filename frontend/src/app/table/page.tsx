@@ -44,20 +44,8 @@ function statusLabel(status: TableStatus): string {
   return status === "closed" ? "disconnected" : "connecting…";
 }
 
-function feltCaption(view: PlayerView | null): string {
-  if (!view) return "";
-  if (view.phase === "Auction") return `${view.turn} to call`;
-  if (view.phase === "Play") return `${view.turn} to play`;
-  if (view.result?.passedOut) return "passed out";
-  if (view.result) {
-    const s = view.result.score;
-    return `${view.result.contract ?? "done"} · ${s >= 0 ? "+" : ""}${s}`;
-  }
-  return "complete";
-}
-
 export default function TablePage() {
-  const { view, status, error, history, bid, playCard } = useTable();
+  const { view, status, error, history, paused, bid, playCard } = useTable();
 
   return (
     <div className="app">
@@ -65,7 +53,14 @@ export default function TablePage() {
 
       <div className="center">
         <TableHeader view={view} />
-        <Felt view={view} status={status} error={error} onBid={bid} onPlay={playCard} />
+        <Felt
+          view={view}
+          status={status}
+          error={error}
+          paused={paused}
+          onBid={bid}
+          onPlay={playCard}
+        />
         <Plates view={view} />
       </div>
 
@@ -112,18 +107,26 @@ function Felt({
   view,
   status,
   error,
+  paused,
   onBid,
   onPlay,
 }: {
   view: PlayerView | null;
   status: TableStatus;
   error: string | null;
+  paused: boolean;
   onBid: (call: string) => void;
   onPlay: (card: string) => void;
 }) {
   const [dropActive, setDropActive] = useState(false);
-  const legal = view?.legalCards ?? [];
+  // nothing is playable while a finished trick is held on the table
+  const legal = paused ? [] : (view?.legalCards ?? []);
   const { axis, cross } = vulEdges(view);
+  // show the live trick, or the just-finished one during the pause
+  const trick =
+    view && view.currentTrick.length > 0
+      ? view.currentTrick
+      : (view?.lastTrick ?? []);
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
@@ -133,15 +136,7 @@ function Felt({
   }
 
   return (
-    <div className="box felt-box">
-      <div className="bt">
-        <span className="t">
-          Board {view?.boardNumber ?? "–"}
-          {view ? ` · ${view.phase}` : ""}
-        </span>
-        <span className="r">{feltCaption(view)}</span>
-      </div>
-
+    <div className="felt-box">
       <div
         className={`felt${dropActive ? " drop" : ""}`}
         style={{
@@ -171,9 +166,9 @@ function Felt({
             <OpponentSeat key={seat} view={view} seat={seat} legal={legal} onPlay={onPlay} />
           ))}
 
-        {view && view.currentTrick.length > 0 && (
+        {trick.length > 0 && (
           <div className="trick">
-            {view.currentTrick.map((pc) => {
+            {trick.map((pc) => {
               const face = cardFace(pc.card);
               return (
                 <div

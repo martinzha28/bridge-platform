@@ -3,12 +3,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PlayerView, ServerMessage } from "@/lib/protocol";
 import { openTableSocket, type TableSocket } from "@/lib/ws";
-import { boardSummary, normalizeView, type BoardResult } from "@/lib/view";
+import {
+  boardSummary,
+  normalizeView,
+  trickJustFinished,
+  type BoardResult,
+} from "@/lib/view";
 
 export type TableStatus = "connecting" | "setup" | "live" | "closed" | "error";
 
 // How long the finished board stays on screen before the next deal.
 const NEXT_BOARD_DELAY_MS = 4000;
+// How long a completed trick sits on the table before play catches up.
+const TRICK_PAUSE_MS = 1500;
 
 export interface UseTable {
   view: PlayerView | null;
@@ -16,6 +23,8 @@ export interface UseTable {
   error: string | null;
   /** Finished boards at this table, oldest first. */
   history: BoardResult[];
+  /** True while a completed trick is held on the table. */
+  paused: boolean;
   bid: (call: string) => void;
   playCard: (card: string) => void;
 }
@@ -23,17 +32,49 @@ export interface UseTable {
 /**
  * Connects to the game socket and drives the fixed local setup:
  * create a table, sit South, fill N/E/W with bots, start board one.
- * From then on the returned `view` is whatever the backend last sent.
+ * From then on the returned `view` is whatever the backend last sent,
+ * except that a just-completed trick is held on screen briefly before
+ * catching up to live play.
  */
 export function useTable(): UseTable {
   const [view, setView] = useState<PlayerView | null>(null);
   const [status, setStatus] = useState<TableStatus>("connecting");
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<BoardResult[]>([]);
+  const [paused, setPaused] = useState(false);
   const socketRef = useRef<TableSocket | null>(null);
   const nextBoardTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const trickHoldTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingView = useRef<PlayerView | null>(null);
 
   useEffect(() => {
+    // ingest applies a view and, if it lands right as a trick finished,
+    // freezes the screen for TRICK_PAUSE_MS while buffering later states.
+    function ingest(next: PlayerView) {
+      setView(next);
+      setStatus("live");
+
+      if (next.phase === "Complete" && nextBoardTimer.current === null) {
+        setHistory((h) => [...h, boardSummary(next)]);
+        nextBoardTimer.current = setTimeout(() => {
+          nextBoardTimer.current = null;
+          socket.send({ type: "start" });
+        }, NEXT_BOARD_DELAY_MS);
+        return;
+      }
+
+      if (trickJustFinished(next)) {
+        setPaused(true);
+        trickHoldTimer.current = setTimeout(() => {
+          trickHoldTimer.current = null;
+          setPaused(false);
+          const buffered = pendingView.current;
+          pendingView.current = null;
+          if (buffered) ingest(buffered);
+        }, TRICK_PAUSE_MS);
+      }
+    }
+
     const socket = openTableSocket({
       onOpen() {
         setStatus("setup");
@@ -50,16 +91,10 @@ export function useTable(): UseTable {
             break;
           case "game_state": {
             const next = normalizeView(msg.payload as PlayerView);
-            setView(next);
-            setStatus("live");
-            // When a board finishes, record it and deal the next one
-            // after a short pause so the result is readable.
-            if (next.phase === "Complete" && nextBoardTimer.current === null) {
-              setHistory((h) => [...h, boardSummary(next)]);
-              nextBoardTimer.current = setTimeout(() => {
-                nextBoardTimer.current = null;
-                socket.send({ type: "start" });
-              }, NEXT_BOARD_DELAY_MS);
+            if (trickHoldTimer.current !== null) {
+              pendingView.current = next; // caught up when the pause ends
+            } else {
+              ingest(next);
             }
             break;
           }
@@ -79,10 +114,14 @@ export function useTable(): UseTable {
     socketRef.current = socket;
 
     return () => {
-      if (nextBoardTimer.current !== null) {
-        clearTimeout(nextBoardTimer.current);
-        nextBoardTimer.current = null;
+      for (const timer of [nextBoardTimer, trickHoldTimer]) {
+        if (timer.current !== null) {
+          clearTimeout(timer.current);
+          timer.current = null;
+        }
       }
+      pendingView.current = null;
+      setPaused(false);
       socket.close();
       socketRef.current = null;
     };
@@ -96,5 +135,5 @@ export function useTable(): UseTable {
     socketRef.current?.send({ type: "play_card", card });
   }, []);
 
-  return { view, status, error, history, bid, playCard };
+  return { view, status, error, history, paused, bid, playCard };
 }
