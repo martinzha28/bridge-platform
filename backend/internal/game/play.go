@@ -47,6 +47,23 @@ func (p *Play) currentTrick() *Trick {
 	return &p.Tricks[len(p.Tricks)-1]
 }
 
+// lastCompletedTrick returns the trick that was most recently finished
+// and is still sitting on the table — i.e. the next trick hasn't been
+// led yet, or the hand is over. Returns nil otherwise.
+func (p *Play) lastCompletedTrick() *Trick {
+	n := len(p.Tricks)
+	if n == 0 {
+		return nil
+	}
+	if p.finished {
+		return &p.Tricks[n-1]
+	}
+	if n >= 2 && p.Tricks[n-1].PlayedSoFar == 0 {
+		return &p.Tricks[n-2]
+	}
+	return nil
+}
+
 func (p *Play) PlayCard(actor Direction, card Card) error {
 	if p.finished {
 		return fmt.Errorf("play is already finished")

@@ -82,6 +82,52 @@ func TestViewForPlayPhase(t *testing.T) {
 	}
 }
 
+func TestViewLastTrick(t *testing.T) {
+	g := newDealtGame(t, 1, 42)
+	sessionMustCall(t, g, North, BidCall(1, NoTrump))
+	sessionMustCall(t, g, East, passCall)
+	sessionMustCall(t, g, South, passCall)
+	sessionMustCall(t, g, West, passCall)
+
+	playCards(t, g, 3) // three into the first trick
+	if len(g.ViewFor(North).LastTrick) != 0 {
+		t.Fatal("LastTrick should be empty mid-trick")
+	}
+
+	playCards(t, g, 1) // complete the trick
+	v := g.ViewFor(North)
+	if len(v.LastTrick) != 4 {
+		t.Fatalf("LastTrick = %d cards, want 4 after a completed trick", len(v.LastTrick))
+	}
+	if len(v.CurrentTrick) != 0 {
+		t.Errorf("CurrentTrick = %d, want 0 between tricks", len(v.CurrentTrick))
+	}
+	if v.LastTrick[0].Seat != "East" {
+		t.Errorf("LastTrick[0].Seat = %q, want East (opening leader)", v.LastTrick[0].Seat)
+	}
+
+	playCards(t, g, 1) // lead the next trick
+	if len(g.ViewFor(North).LastTrick) != 0 {
+		t.Error("LastTrick should clear once the next trick is led")
+	}
+}
+
+// playCards plays n legal cards in turn order (declarer plays for dummy).
+func playCards(t *testing.T, g *Game, n int) {
+	t.Helper()
+	for i := 0; i < n; i++ {
+		turn, ok := g.Turn()
+		if !ok {
+			t.Fatalf("playCards: game ended after %d cards", i)
+		}
+		actor := turn
+		if turn == g.Play.Dummy {
+			actor = g.Play.Declarer
+		}
+		sessionMustPlay(t, g, actor, g.LegalCards(actor)[0])
+	}
+}
+
 func TestViewForCompletePhase(t *testing.T) {
 	g := newDealtGame(t, 1, 42)
 
