@@ -1,7 +1,9 @@
 import { describe, it, expect } from "vitest";
 import type { PlayerView } from "./protocol";
 import {
+  auctionColumns,
   auctionRows,
+  seatVulnerable,
   boardResultText,
   boardSummary,
   canPlay,
@@ -109,19 +111,47 @@ describe("trickCardFor", () => {
   });
 });
 
+describe("auctionColumns", () => {
+  it("puts the viewer's own seat last, clockwise order ahead of it", () => {
+    expect(auctionColumns("South")).toEqual(["West", "North", "East", "South"]);
+    expect(auctionColumns("North")).toEqual(["East", "South", "West", "North"]);
+    expect(auctionColumns("East")).toEqual(["South", "West", "North", "East"]);
+    expect(auctionColumns("West")).toEqual(["North", "East", "South", "West"]);
+  });
+});
+
+describe("seatVulnerable", () => {
+  it("reads the board vulnerability per partnership", () => {
+    expect(seatVulnerable("South", "EW")).toBe(false);
+    expect(seatVulnerable("West", "EW")).toBe(true);
+    expect(seatVulnerable("North", "NS")).toBe(true);
+    expect(seatVulnerable("East", "Both")).toBe(true);
+    expect(seatVulnerable("South", "None")).toBe(false);
+  });
+});
+
 describe("auctionRows", () => {
-  it("pads leading cells so the dealer sits in the right column", () => {
+  const south = auctionColumns("South"); // W N E S
+
+  it("pads leading cells so the dealer sits in its column", () => {
     // dealer North -> one blank under West
-    expect(auctionRows(["1C", "P", "1H", "P"], "North")).toEqual([
+    expect(auctionRows(["1C", "P", "1H", "P"], "North", south)).toEqual([
       ["", "1C", "P", "1H"],
       ["P", "", "", ""],
     ]);
   });
-  it("starts flush when West deals", () => {
-    expect(auctionRows(["P", "P"], "West")).toEqual([["P", "P", "", ""]]);
+  it("starts flush when the first column dealt", () => {
+    expect(auctionRows(["P", "P"], "West", south)).toEqual([["P", "P", "", ""]]);
+  });
+  it("respects a rotated column order", () => {
+    // viewer North: columns E S W N, dealer North -> three blanks
+    expect(auctionRows(["1C", "P"], "North", auctionColumns("North"))).toEqual([
+      ["", "", "", "1C"],
+      ["P", "", "", ""],
+    ]);
   });
   it("returns nothing for an empty auction", () => {
-    expect(auctionRows([], "North")).toEqual([]);
+    expect(auctionRows([], "North", south)).toEqual([]);
   });
 });
 

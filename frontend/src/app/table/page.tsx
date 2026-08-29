@@ -8,8 +8,8 @@ import { useTable, type TableStatus } from "@/hooks/useTable";
 import type { PlayerView, Seat } from "@/lib/protocol";
 import { SEATS } from "@/lib/protocol";
 import {
-  AUCTION_COLUMNS,
   SEAT_LETTER,
+  auctionColumns,
   auctionRows,
   boardResultText,
   canBid,
@@ -17,12 +17,28 @@ import {
   groupHandBySuit,
   handCount,
   historyRow,
+  nextSeat,
+  seatVulnerable,
   trumpSuit,
   type BoardResult,
 } from "@/lib/view";
 
 const FELT_POS: Record<Seat, string> = { North: "n", East: "e", South: "s", West: "w" };
 const PLATE_ORDER: Seat[] = ["South", "West", "North", "East"];
+
+const VUL_ON = "var(--red)";
+const VUL_OFF = "var(--vul-safe)";
+
+/** Edge colours from the viewer's seat: `axis` is the viewer's own
+ *  partnership (top/bottom of the table), `cross` is the opponents
+ *  (left/right). */
+function vulEdges(view: PlayerView | null): { axis: string; cross: string } {
+  if (!view) return { axis: VUL_OFF, cross: VUL_OFF };
+  return {
+    axis: seatVulnerable(view.seat, view.vulnerability) ? VUL_ON : VUL_OFF,
+    cross: seatVulnerable(nextSeat(view.seat), view.vulnerability) ? VUL_ON : VUL_OFF,
+  };
+}
 
 function statusLabel(status: TableStatus): string {
   return status === "closed" ? "disconnected" : "connecting…";
@@ -67,10 +83,21 @@ export default function TablePage() {
 }
 
 function TableHeader({ view }: { view: PlayerView | null }) {
+  const { axis, cross } = vulEdges(view);
   return (
     <div className="box">
       <div className="thead">
-        <div className="bchip">{view?.boardNumber ?? "–"}</div>
+        <div
+          className="bchip"
+          style={{
+            borderTopColor: axis,
+            borderBottomColor: axis,
+            borderLeftColor: cross,
+            borderRightColor: cross,
+          }}
+        >
+          {view?.boardNumber ?? "–"}
+        </div>
         <h1>Practice table</h1>
         <div className="sc">
           <span>vul</span> {view?.vulnerability ?? "–"} &nbsp;
@@ -96,6 +123,7 @@ function Felt({
 }) {
   const [dropActive, setDropActive] = useState(false);
   const legal = view?.legalCards ?? [];
+  const { axis, cross } = vulEdges(view);
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
@@ -116,6 +144,12 @@ function Felt({
 
       <div
         className={`felt${dropActive ? " drop" : ""}`}
+        style={{
+          borderTopColor: axis,
+          borderBottomColor: axis,
+          borderLeftColor: cross,
+          borderRightColor: cross,
+        }}
         onDragOver={(e) => {
           e.preventDefault();
           setDropActive(true);
@@ -253,7 +287,8 @@ function Plates({ view }: { view: PlayerView | null }) {
 }
 
 function AuctionPanel({ view }: { view: PlayerView | null }) {
-  const rows = view ? auctionRows(view.calls, view.dealer) : [];
+  const columns = auctionColumns(view?.seat ?? "South");
+  const rows = view ? auctionRows(view.calls, view.dealer, columns) : [];
 
   return (
     <div className="box">
@@ -265,8 +300,18 @@ function AuctionPanel({ view }: { view: PlayerView | null }) {
         <table className="auc">
           <thead>
             <tr>
-              {AUCTION_COLUMNS.map((seat) => (
-                <th key={seat}>{SEAT_LETTER[seat]}</th>
+              {columns.map((seat) => (
+                <th
+                  key={seat}
+                  style={{
+                    color:
+                      view && seatVulnerable(seat, view.vulnerability)
+                        ? "var(--red)"
+                        : "var(--vul-safe)",
+                  }}
+                >
+                  {SEAT_LETTER[seat]}
+                </th>
               ))}
             </tr>
           </thead>

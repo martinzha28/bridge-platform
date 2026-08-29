@@ -185,15 +185,32 @@ export function boardResultText(view: PlayerView): string {
   return `${r.contract} · ${declarerTricks} tricks · ${score}`;
 }
 
+// --- Vulnerability -------------------------------------------------------
+
+/** Is the seat's partnership vulnerable for this board? */
+export function seatVulnerable(seat: Seat, vulnerability: string): boolean {
+  if (vulnerability === "Both") return true;
+  const northSouth = seat === "North" || seat === "South";
+  return northSouth ? vulnerability === "NS" : vulnerability === "EW";
+}
+
 // --- Auction ladder (right-side panel) -------------------------------------
 
-export const AUCTION_COLUMNS: Seat[] = ["West", "North", "East", "South"];
+const CLOCKWISE: Seat[] = ["North", "East", "South", "West"];
 
-/** Lay calls out under W/N/E/S columns, padding leading cells so the
+/** Auction columns ordered so the viewer's own seat is last (rightmost),
+ *  the others in clockwise seating order ahead of it. South -> W N E S,
+ *  North -> E S W N. */
+export function auctionColumns(seat: Seat): Seat[] {
+  const start = (CLOCKWISE.indexOf(seat) + 1) % 4;
+  return [0, 1, 2, 3].map((k) => CLOCKWISE[(start + k) % 4]);
+}
+
+/** Lay calls out under the given columns, padding leading cells so the
  *  dealer's first call sits in the dealer's column. */
-export function auctionRows(calls: string[], dealer: Seat): string[][] {
+export function auctionRows(calls: string[], dealer: Seat, columns: Seat[]): string[][] {
   if (calls.length === 0) return [];
-  const lead = AUCTION_COLUMNS.indexOf(dealer);
+  const lead = columns.indexOf(dealer);
   const cells: string[] = Array(lead).fill("").concat(calls);
   while (cells.length % 4 !== 0) cells.push("");
   const rows: string[][] = [];
