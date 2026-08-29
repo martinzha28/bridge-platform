@@ -18,6 +18,7 @@ import {
   nextSeat,
   normalizeView,
   partnerSeat,
+  sideTricks,
   trickCardFor,
   trickJustFinished,
 } from "./view";
@@ -136,6 +137,19 @@ describe("auctionColumns", () => {
     expect(auctionColumns("North")).toEqual(["East", "South", "West", "North"]);
     expect(auctionColumns("East")).toEqual(["South", "West", "North", "East"]);
     expect(auctionColumns("West")).toEqual(["North", "East", "South", "West"]);
+  });
+});
+
+describe("sideTricks", () => {
+  it("splits trick counts from the viewer's side", () => {
+    expect(sideTricks(view({ seat: "South", tricksNS: 5, tricksEW: 3 }))).toEqual({
+      ours: 5,
+      theirs: 3,
+    });
+    expect(sideTricks(view({ seat: "East", tricksNS: 5, tricksEW: 3 }))).toEqual({
+      ours: 3,
+      theirs: 5,
+    });
   });
 });
 

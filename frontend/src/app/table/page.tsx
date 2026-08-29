@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import Rail from "@/components/Rail";
 import BiddingBox from "@/components/BiddingBox";
 import Card from "@/components/Card";
 import { useTable, type TableStatus } from "@/hooks/useTable";
-import type { PlayerView, Seat } from "@/lib/protocol";
+import type { PlayedCard, PlayerView, Seat } from "@/lib/protocol";
 import { SEATS } from "@/lib/protocol";
 import {
   SEAT_LETTER,
@@ -19,6 +20,7 @@ import {
   historyRow,
   nextSeat,
   seatVulnerable,
+  sideTricks,
   trumpSuit,
   type BoardResult,
 } from "@/lib/view";
@@ -45,19 +47,33 @@ function statusLabel(status: TableStatus): string {
 }
 
 export default function TablePage() {
-  const { view, status, error, history, paused, bid, playCard } = useTable();
+  const { view, status, error, history, paused, lastCompletedTrick, bid, playCard } =
+    useTable();
+  const [replayOpen, setReplayOpen] = useState(false);
+  const canReplay = lastCompletedTrick.length > 0;
+
+  // close the replay popup when there's nothing to show (e.g. new board)
+  useEffect(() => {
+    if (!canReplay) setReplayOpen(false);
+  }, [canReplay]);
 
   return (
     <div className="app">
       <Rail active="play" />
 
       <div className="center">
-        <TableHeader view={view} />
+        <TableHeader
+          view={view}
+          canReplay={canReplay}
+          onReplay={() => setReplayOpen(true)}
+        />
         <Felt
           view={view}
           status={status}
           error={error}
           paused={paused}
+          replayCards={replayOpen ? lastCompletedTrick : null}
+          onCloseReplay={() => setReplayOpen(false)}
           onBid={bid}
           onPlay={playCard}
         />
@@ -77,8 +93,17 @@ export default function TablePage() {
   );
 }
 
-function TableHeader({ view }: { view: PlayerView | null }) {
+function TableHeader({
+  view,
+  canReplay,
+  onReplay,
+}: {
+  view: PlayerView | null;
+  canReplay: boolean;
+  onReplay: () => void;
+}) {
   const { axis, cross } = vulEdges(view);
+  const { ours, theirs } = view ? sideTricks(view) : { ours: 0, theirs: 0 };
   return (
     <div className="box">
       <div className="thead">
@@ -94,11 +119,40 @@ function TableHeader({ view }: { view: PlayerView | null }) {
           {view?.boardNumber ?? "–"}
         </div>
         <h1>Practice table</h1>
-        <div className="sc">
-          <span>vul</span> {view?.vulnerability ?? "–"} &nbsp;
-          <span>contract</span> {view?.contract ?? "–"}
+        <div className="tricks">
+          <div className="tks tks-us" title="Tricks we've taken">
+            <b>{ours}</b>
+          </div>
+          <div className="tks tks-them" title="Tricks they've taken">
+            <b>{theirs}</b>
+          </div>
+          <button className="xs" disabled={!canReplay} onClick={onReplay}>
+            Replay
+          </button>
         </div>
+        <Link href="/" className="btn xs">
+          Leave
+        </Link>
       </div>
+    </div>
+  );
+}
+
+function TrickCards({ cards }: { cards: PlayedCard[] }) {
+  return (
+    <div className="trick">
+      {cards.map((pc) => {
+        const face = cardFace(pc.card);
+        return (
+          <div
+            key={pc.seat}
+            className={`pc ${FELT_POS[pc.seat]}${face.red ? " red" : ""}`}
+          >
+            {face.rank}
+            <i>{face.suit}</i>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -108,6 +162,8 @@ function Felt({
   status,
   error,
   paused,
+  replayCards,
+  onCloseReplay,
   onBid,
   onPlay,
 }: {
@@ -115,6 +171,8 @@ function Felt({
   status: TableStatus;
   error: string | null;
   paused: boolean;
+  replayCards: PlayedCard[] | null;
+  onCloseReplay: () => void;
   onBid: (call: string) => void;
   onPlay: (card: string) => void;
 }) {
@@ -122,7 +180,7 @@ function Felt({
   // nothing is playable while a finished trick is held on the table
   const legal = paused ? [] : (view?.legalCards ?? []);
   const { axis, cross } = vulEdges(view);
-  // show the live trick, or the just-finished one during the pause
+  // the live trick, or the just-finished one during the auto-pause
   const trick =
     view && view.currentTrick.length > 0
       ? view.currentTrick
@@ -166,22 +224,7 @@ function Felt({
             <OpponentSeat key={seat} view={view} seat={seat} legal={legal} onPlay={onPlay} />
           ))}
 
-        {trick.length > 0 && (
-          <div className="trick">
-            {trick.map((pc) => {
-              const face = cardFace(pc.card);
-              return (
-                <div
-                  key={pc.seat}
-                  className={`pc ${FELT_POS[pc.seat]}${face.red ? " red" : ""}`}
-                >
-                  {face.rank}
-                  <i>{face.suit}</i>
-                </div>
-              );
-            })}
-          </div>
-        )}
+        {trick.length > 0 && <TrickCards cards={trick} />}
 
         {view && (
           <div className="seat s">
@@ -210,6 +253,15 @@ function Felt({
 
         {view?.phase === "Complete" && (
           <div className="felt-msg result">{boardResultText(view)} · next board…</div>
+        )}
+
+        {replayCards && replayCards.length > 0 && (
+          <>
+            <div className="replay-backdrop" onClick={onCloseReplay} />
+            <div className="replay-box">
+              <TrickCards cards={replayCards} />
+            </div>
+          </>
         )}
       </div>
     </div>
