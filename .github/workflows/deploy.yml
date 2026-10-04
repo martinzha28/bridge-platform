@@ -1,0 +1,16 @@
+name: Deploy to production
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH and run deploy.sh
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 34.202.24.177
+          username: ubuntu
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: /opt/bridge-platform/deploy.sh
