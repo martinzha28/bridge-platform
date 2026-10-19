@@ -24,6 +24,9 @@ type Client struct {
 	conn      *websocket.Conn
 	send      chan []byte
 	userID    uuid.UUID
+	name      string // username, or the guest's nickname; a table may add a " (2)" suffix
+	guest     bool
+	identity  string // "u:<user>" / "g:<guestID>": recognises the same person reconnecting
 	table     *Table
 	direction game.Direction
 	seated    bool
@@ -100,12 +103,13 @@ func (c *Client) writePump() {
 func (c *Client) handleMessage(msg ClientMessage) {
 	switch msg.Type {
 	case MsgCreateTable:
+		c.setGuestIdentity(msg.DisplayName, msg.GuestID)
 		table := c.hub.CreateTable()
 		c.table = table
-		table.AddObserver(c)
+		you := table.AddObserver(c)
 		c.sendJSON(ServerMessage{
 			Type:    MsgTableCreated,
-			Payload: map[string]string{"tableID": table.ID},
+			Payload: map[string]any{"tableID": table.ID, "you": you},
 		})
 		table.BroadcastTableState()
 		table.SendChatHistory(c)
@@ -116,11 +120,12 @@ func (c *Client) handleMessage(msg ClientMessage) {
 			c.sendError("table not found: " + msg.TableID)
 			return
 		}
+		c.setGuestIdentity(msg.DisplayName, msg.GuestID)
 		c.table = table
-		table.AddObserver(c)
+		you := table.AddObserver(c)
 		c.sendJSON(ServerMessage{
 			Type:    MsgTableJoined,
-			Payload: map[string]string{"tableID": table.ID},
+			Payload: map[string]any{"tableID": table.ID, "you": you},
 		})
 		table.BroadcastTableState()
 		table.SendChatHistory(c)
@@ -261,12 +266,7 @@ func (c *Client) handleMessage(msg ClientMessage) {
 			c.sendError("join a table first")
 			return
 		}
-		sender, seat := "Observer", ""
-		if c.seated {
-			sender = c.direction.String()
-			seat = c.direction.String()
-		}
-		c.table.Chat(sender, seat, msg.Text)
+		c.table.Chat(c, msg.Text)
 
 	default:
 		c.sendError("unknown message type: " + msg.Type)

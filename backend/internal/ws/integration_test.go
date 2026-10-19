@@ -48,15 +48,25 @@ func wsSend(t *testing.T, conn *websocket.Conn, msg ClientMessage) {
 }
 
 // wsRecv returns the next server message, skipping the asynchronous
-// table_state broadcasts (tests that care about those use wsRecvType).
+// table_state broadcasts, the chat_history replay sent on join, and
+// system chat lines (joined / left) — tests that care about those use
+// wsRecvType.
 func wsRecv(t *testing.T, conn *websocket.Conn) ServerMessage {
 	t.Helper()
 	for {
 		msg := wsRecvRaw(t, conn)
-		if msg.Type != MsgTableState {
+		if msg.Type != MsgTableState && msg.Type != MsgChatHistory && !isSystemChat(msg) {
 			return msg
 		}
 	}
+}
+
+func isSystemChat(msg ServerMessage) bool {
+	if msg.Type != MsgChatMessage {
+		return false
+	}
+	p, ok := msg.Payload.(map[string]any)
+	return ok && p["kind"] == "system"
 }
 
 func wsRecvRaw(t *testing.T, conn *websocket.Conn) ServerMessage {

@@ -32,6 +32,7 @@ func main() {
 
 	gameRepo := repository.NewGameRepository(db)
 	hub := ws.NewHub(gameRepo)
+	hub.SetUserLookup(repository.NewUserRepository(db))
 	router := routes.SetupRouter(db, rdb, hub, cfg)
 
 	log.Printf("Server starting on :%s", cfg.Port)

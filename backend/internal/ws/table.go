@@ -15,49 +15,38 @@ import (
 )
 
 type Table struct {
-	ID        string
-	name      string
-	description string
-	mu        sync.Mutex
-	game      *game.Game
-	players   map[game.Direction]Player
-	observers map[*Client]struct{} // clients watching the lobby / play
-	reapTimer *time.Timer
-	gameRepo  *repository.GameRepository
-	persisted bool
-	boardNum  int
-	closed    bool
-	chatLog   []ChatMessageView
-	chatSeq   int64
+	ID           string
+	name         string
+	description  string
+	mu           sync.Mutex
+	game         *game.Game
+	players      map[game.Direction]Player
+	observers    map[*Client]*member // clients watching the lobby / play
+	nextMemberID int
+	// pendingLeaves holds deferred "left" lines by identity; a rejoin
+	// within leaveGrace cancels them (see members.go).
+	pendingLeaves map[string]*time.Timer
+	leaveGrace    time.Duration
+	reapTimer     *time.Timer
+	gameRepo      *repository.GameRepository
+	persisted     bool
+	boardNum      int
+	closed        bool
+	chatLog       []ChatMessageView
+	chatSeq       int64
 }
 
 func NewTable(id string, gameRepo *repository.GameRepository) *Table {
 	return &Table{
-		ID:        id,
-		name:      "Practice table",
-		players:   make(map[game.Direction]Player),
-		observers: make(map[*Client]struct{}),
-		gameRepo:  gameRepo,
-		boardNum:  1,
+		ID:            id,
+		name:          "Practice table",
+		players:       make(map[game.Direction]Player),
+		observers:     make(map[*Client]*member),
+		pendingLeaves: make(map[string]*time.Timer),
+		leaveGrace:    defaultLeaveGrace,
+		gameRepo:      gameRepo,
+		boardNum:      1,
 	}
-}
-
-// AddObserver registers a client as watching this table and cancels any
-// pending reap. Safe to call more than once for the same client.
-func (t *Table) AddObserver(c *Client) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	if t.reapTimer != nil {
-		t.reapTimer.Stop()
-		t.reapTimer = nil
-	}
-	t.observers[c] = struct{}{}
-}
-
-func (t *Table) RemoveObserver(c *Client) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	delete(t.observers, c)
 }
 
 // HasObservers reports whether any client is still watching the table.
@@ -257,8 +246,12 @@ func (t *Table) Shutdown() {
 			close(bc.send)
 		}
 	}
+	for _, timer := range t.pendingLeaves {
+		timer.Stop()
+	}
+	t.pendingLeaves = map[string]*time.Timer{}
 	t.players = map[game.Direction]Player{}
-	t.observers = map[*Client]struct{}{}
+	t.observers = map[*Client]*member{}
 }
 
 // broadcastState sends each seated player their personalized game view.

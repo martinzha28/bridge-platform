@@ -14,7 +14,8 @@ type TableStateView struct {
 	TableID     string            `json:"tableID"`
 	Name        string            `json:"name"`
 	Description string            `json:"description"`
-	Seats       map[string]string `json:"seats"` // direction -> "human" | "bot" | "" (open)
+	Seats       map[string]string `json:"seats"`  // direction -> "human" | "bot" | "" (open)
+	People      []PersonView      `json:"people"` // connected clients, join order
 	Started     bool              `json:"started"`
 }
 
@@ -40,6 +41,7 @@ func (t *Table) tableStateView() TableStateView {
 		Name:        t.name,
 		Description: t.description,
 		Seats:       seats,
+		People:      t.people(),
 		Started:     t.game != nil && t.game.Phase != game.PhaseDeal,
 	}
 }

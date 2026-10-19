@@ -1,6 +1,7 @@
 package ws
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"log"
@@ -27,14 +28,24 @@ type Hub struct {
 	tables    map[string]*Table
 	gameRepo  *repository.GameRepository
 	reapGrace time.Duration // tests shrink this right after NewHub
+	// leaveGrace delays a "left" chat line so a quick reconnect (page
+	// navigation, refresh) doesn't spam left/joined. Tests shrink it.
+	leaveGrace time.Duration
+	users      UserLookup // nil: every connection is a guest
 }
 
 func NewHub(gameRepo *repository.GameRepository) *Hub {
 	return &Hub{
-		tables:    make(map[string]*Table),
-		gameRepo:  gameRepo,
-		reapGrace: 30 * time.Second,
+		tables:     make(map[string]*Table),
+		gameRepo:   gameRepo,
+		reapGrace:  30 * time.Second,
+		leaveGrace: defaultLeaveGrace,
 	}
+}
+
+// SetUserLookup lets the hub resolve logged-in users' usernames.
+func (h *Hub) SetUserLookup(u UserLookup) {
+	h.users = u
 }
 
 func (h *Hub) CreateTable() *Table {
@@ -43,6 +54,7 @@ func (h *Hub) CreateTable() *Table {
 
 	id := generateTableID()
 	t := NewTable(id, h.gameRepo)
+	t.leaveGrace = h.leaveGrace
 	h.tables[id] = t
 	return t
 }
@@ -90,10 +102,11 @@ func (h *Hub) HandleUpgrade(w http.ResponseWriter, r *http.Request) {
 	// A valid token cookie (via OptionalMiddleware) attaches the real
 	// user ID. Guests connect without one and get a throwaway ID that
 	// the table layer never reads.
-	userID, ok := auth.UserIDFromContext(r.Context())
-	if !ok {
+	userID, authed := auth.UserIDFromContext(r.Context())
+	if !authed {
 		userID = uuid.New()
 	}
+	name, guest := h.lookupUsername(r.Context(), userID, authed)
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -102,8 +115,29 @@ func (h *Hub) HandleUpgrade(w http.ResponseWriter, r *http.Request) {
 	}
 
 	client := NewClient(h, conn, userID)
+	client.guest = guest
+	if !guest {
+		client.name = name
+		client.identity = "u:" + userID.String()
+	}
 	go client.writePump()
 	go client.readPump()
+}
+
+// lookupUsername resolves a logged-in user's username. Any failure falls
+// back to guest, so a DB hiccup never blocks someone from playing.
+func (h *Hub) lookupUsername(ctx context.Context, id uuid.UUID, authed bool) (string, bool) {
+	if !authed || h.users == nil {
+		return "", true
+	}
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	u, err := h.users.GetByID(ctx, id)
+	if err != nil {
+		log.Printf("username lookup for %v failed, connecting as guest: %v", id, err)
+		return "", true
+	}
+	return u.Username, false
 }
 
 func generateTableID() string {
