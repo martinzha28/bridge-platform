@@ -3,7 +3,7 @@
 import Panel from "@/components/Panel";
 import Button from "@/components/Button";
 import { Pill, PillGroup } from "@/components/Pill";
-import { SEATS, type Seat, type TableState } from "@/lib/protocol";
+import { SEATS, type Person, type Seat, type TableState } from "@/lib/protocol";
 import { SEAT_LETTER } from "@/lib/view";
 import styles from "./SeatsPanel.module.css";
 
@@ -11,9 +11,10 @@ export default function SeatsPanel({
   tableState,
   mySeat,
   isHost,
+  names,
+  hostName,
   onSit,
   onSitHere,
-  onTakeSeat,
   onStand,
   onAddBot,
   onRemoveBot,
@@ -22,9 +23,12 @@ export default function SeatsPanel({
   tableState: TableState;
   mySeat: Seat | null;
   isHost: boolean;
+  /** Seated people by seat, for naming human seats. */
+  names: Partial<Record<Seat, Person>>;
+  /** Shown to non-hosts while they wait; null if nobody hosts right now. */
+  hostName: string | null;
   onSit: (dir: Seat) => void;
   onSitHere: (dir: Seat) => void;
-  onTakeSeat: (dir: Seat) => void;
   onStand: () => void;
   onAddBot: (dir: Seat) => void;
   onRemoveBot: (dir: Seat) => void;
@@ -32,9 +36,13 @@ export default function SeatsPanel({
 }) {
   const open = SEATS.filter((s) => tableState.seats[s] === "");
   const filled = open.length === 0;
-  const startHint = filled
-    ? "All seats filled — ready when you are."
-    : `Waiting on ${open.map((s) => SEAT_LETTER[s]).join(", ")} — add a bot or a player.`;
+  const startHint = !isHost
+    ? hostName
+      ? `Waiting for ${hostName} to start.`
+      : "Waiting for a host — the next player to sit takes over."
+    : filled
+      ? "All seats filled — ready when you are."
+      : `Waiting on ${open.map((s) => SEAT_LETTER[s]).join(", ")} — add a bot or a player.`;
 
   return (
     <Panel title="Seats" padded>
@@ -58,7 +66,7 @@ export default function SeatsPanel({
                 )}
               </>
             ) : who === "human" ? (
-              <span className={styles.tag}>Player</span>
+              <span className={styles.tag}>{names[seat]?.name ?? "Player"}</span>
             ) : isHost ? (
               <>
                 <PillGroup className={styles.pills}>
@@ -86,13 +94,7 @@ export default function SeatsPanel({
                 </Button>
               </>
             ) : who === "bot" ? (
-              <Button
-                size="sm"
-                className={styles.pushRight}
-                onClick={() => onTakeSeat(seat)}
-              >
-                Take seat
-              </Button>
+              <span className={styles.tag}>Bot</span>
             ) : (
               <Button
                 size="sm"
@@ -106,14 +108,16 @@ export default function SeatsPanel({
         );
       })}
 
-      <Button
-        variant="primary"
-        className={styles.start}
-        disabled={!filled}
-        onClick={onStart}
-      >
-        Start game
-      </Button>
+      {isHost && (
+        <Button
+          variant="primary"
+          className={styles.start}
+          disabled={!filled}
+          onClick={onStart}
+        >
+          Start game
+        </Button>
+      )}
       <p className={styles.hint}>{startHint}</p>
     </Panel>
   );

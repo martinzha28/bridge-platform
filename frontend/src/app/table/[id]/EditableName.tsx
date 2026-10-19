@@ -1,15 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { cx } from "@/lib/cx";
 import styles from "./EditableName.module.css";
 
-/** Click-to-edit table title. Used in the lobby header and the play header. */
+/** Click-to-edit table title. Used in the lobby header and the play
+ *  header. Read-only when `onRename` is omitted (non-hosts). */
 export default function EditableName({
   name,
   onRename,
 }: {
   name: string;
-  onRename: (v: string) => void;
+  onRename?: (v: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(name);
@@ -18,10 +20,15 @@ export default function EditableName({
     if (!editing) setDraft(name);
   }, [name, editing]);
 
+  if (!onRename) {
+    return <h1 className={styles.name}>{name}</h1>;
+  }
+  const rename = onRename;
+
   if (!editing) {
     return (
       <h1
-        className={styles.name}
+        className={cx(styles.name, styles.editable)}
         title="Click to rename"
         onClick={() => {
           setDraft(name);
@@ -36,7 +43,7 @@ export default function EditableName({
   function commit() {
     setEditing(false);
     const v = draft.trim();
-    if (v && v !== name) onRename(v);
+    if (v && v !== name) rename(v);
   }
 
   return (

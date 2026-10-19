@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ServerMessage } from "@/lib/protocol";
+import type { JoinIdentity, ServerMessage } from "@/lib/protocol";
 import { openTableSocket, type TableSocket } from "@/lib/ws";
 
 export type DraftStatus = "connecting" | "ready" | "error";
@@ -10,9 +10,10 @@ export type DraftStatus = "connecting" | "ready" | "error";
  * Used by /create (step 1): opens a socket, creates a table, and keeps
  * the socket open (so the table isn't reaped) while the settings page is
  * mounted. `setName` / `setDescription` push the table's metadata to the
- * server so it's already set by the time we reach the lobby.
+ * server so it's already set by the time we reach the lobby. `join` is
+ * read once, when the socket opens.
  */
-export function useTableDraft(): {
+export function useTableDraft(join: JoinIdentity): {
   tableId: string | null;
   status: DraftStatus;
   error: string | null;
@@ -23,11 +24,13 @@ export function useTableDraft(): {
   const [status, setStatus] = useState<DraftStatus>("connecting");
   const [error, setError] = useState<string | null>(null);
   const socketRef = useRef<TableSocket | null>(null);
+  const joinRef = useRef(join);
+  joinRef.current = join;
 
   useEffect(() => {
     const socket = openTableSocket({
       onOpen() {
-        socket.send({ type: "create_table" });
+        socket.send({ type: "create_table", ...joinRef.current });
       },
       onMessage(msg: ServerMessage) {
         if (msg.type === "table_created") {

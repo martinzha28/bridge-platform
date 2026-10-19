@@ -21,6 +21,7 @@ type PersonView struct {
 	Name  string `json:"name"`
 	Guest bool   `json:"guest"`
 	Seat  string `json:"seat"` // "" while watching
+	Host  bool   `json:"host"`
 }
 
 // AddObserver registers a client as watching this table, cancels any
@@ -49,6 +50,9 @@ func (t *Table) AddObserver(c *Client) PersonView {
 	t.nextMemberID++
 	m := &member{id: t.nextMemberID, name: t.uniqueName(c)}
 	t.observers[c] = m
+	if first {
+		t.hostID = c.identity // the creator hosts
+	}
 
 	// The newcomer gets this line in the chat history sent after joining.
 	if !first && !returning && !t.closed {
@@ -85,6 +89,10 @@ func (t *Table) RemoveObserver(c *Client) {
 		}
 		delete(t.pendingLeaves, id)
 		t.broadcastChat(t.appendSystem(name + " left"))
+		if id == t.hostID {
+			t.passHost()
+			t.broadcastTableState()
+		}
 	})
 	t.pendingLeaves[id] = timer
 }
@@ -131,7 +139,51 @@ func (t *Table) seatOf(c *Client) string {
 
 // personView must be called with t.mu held.
 func (t *Table) personView(c *Client, m *member) PersonView {
-	return PersonView{ID: m.id, Name: m.name, Guest: c.guest, Seat: t.seatOf(c)}
+	return PersonView{
+		ID:    m.id,
+		Name:  m.name,
+		Guest: c.guest,
+		Seat:  t.seatOf(c),
+		Host:  c.identity != "" && c.identity == t.hostID,
+	}
+}
+
+// IsHost reports whether c may manage the table (start, bots, rename).
+func (t *Table) IsHost(c *Client) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return c.identity != "" && c.identity == t.hostID
+}
+
+// passHost hands hosting to the longest-seated human, or to nobody (the
+// next human to sit takes it) if none is seated. Spectators never
+// inherit. Must be called with t.mu held.
+func (t *Table) passHost() {
+	var next *Client
+	var since time.Time
+	for d, p := range t.players {
+		c, ok := p.(*Client)
+		if !ok || c.identity == t.hostID {
+			continue
+		}
+		if at := t.seatedAt[d]; next == nil || at.Before(since) {
+			next, since = c, at
+		}
+	}
+	t.hostID = ""
+	if next != nil {
+		t.setHost(next)
+	}
+}
+
+// setHost makes c the host and announces it. Must be called with t.mu held.
+func (t *Table) setHost(c *Client) {
+	t.hostID = c.identity
+	name := c.name
+	if m, ok := t.observers[c]; ok {
+		name = m.name
+	}
+	t.broadcastChat(t.appendSystem(name + " is now the host"))
 }
 
 // people lists every connected client in join order. Must be called

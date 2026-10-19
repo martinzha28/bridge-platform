@@ -18,7 +18,8 @@ export default function TableHeader({
 }: {
   view: PlayerView | null;
   name: string;
-  onRename: (v: string) => void;
+  /** Omitted for non-hosts: the name is shown read-only. */
+  onRename?: (v: string) => void;
   canReplay: boolean;
   onReplay: () => void;
 }) {

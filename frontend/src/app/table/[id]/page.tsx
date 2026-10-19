@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Rail from "@/components/Rail";
 import Button from "@/components/Button";
 import ChatPanel from "@/components/ChatPanel";
+import NamePrompt from "@/components/NamePrompt";
 import Lobby from "./Lobby";
 import Felt from "./Felt";
 import TableHeader from "./TableHeader";
@@ -12,6 +13,8 @@ import Plates from "./Plates";
 import AuctionPanel from "./AuctionPanel";
 import HistoryPanel from "./HistoryPanel";
 import { useTable } from "@/hooks/useTable";
+import { useDisplayIdentity } from "@/hooks/useDisplayIdentity";
+import type { JoinIdentity } from "@/lib/protocol";
 import { DEFAULT_CONFIG, loadConfig } from "@/lib/tableConfig";
 import feltStyles from "@/components/felt.module.css";
 
@@ -33,13 +36,26 @@ function FeltGate({ children }: { children: ReactNode }) {
 
 export default function TablePage() {
   const params = useParams<{ id: string }>();
-  const id = params.id;
+  const identity = useDisplayIdentity();
 
-  // config + host flag come from /create via sessionStorage; a bare
-  // visitor (invite link) gets defaults and is not the host.
-  const { config, isHost } = useMemo(() => {
+  if (!identity.ready) return <FeltGate>Joining table…</FeltGate>;
+  if (identity.needsPrompt) {
+    return (
+      <FeltGate>
+        <NamePrompt initial={identity.name} onSubmit={identity.chooseName} />
+      </FeltGate>
+    );
+  }
+  return <TableRoom id={params.id} join={identity.join} />;
+}
+
+/** Mounted once we know who's joining — useTable connects on mount. */
+function TableRoom({ id, join }: { id: string; join: JoinIdentity }) {
+  // config comes from /create via sessionStorage; a bare visitor (invite
+  // link) gets defaults. Who hosts is the server's call (useTable).
+  const { config, isCreator } = useMemo(() => {
     const stored = loadConfig(id);
-    return { config: stored ?? DEFAULT_CONFIG, isHost: stored !== null };
+    return { config: stored ?? DEFAULT_CONFIG, isCreator: stored !== null };
   }, [id]);
 
   const {
@@ -52,19 +68,21 @@ export default function TablePage() {
     paused,
     lastCompletedTrick,
     mySeat,
+    isHost,
+    me,
+    people,
     messages,
     bid,
     playCard,
     sitAt,
     stand,
-    takeSeat,
     addBot,
     removeBot,
     moveTo,
     setName,
     sendChat,
     startGame,
-  } = useTable({ tableId: id, config, isHost });
+  } = useTable({ tableId: id, config, isCreator, join });
 
   const tableName = tableState?.name ?? "Practice table";
 
@@ -92,7 +110,7 @@ export default function TablePage() {
 
   // a visitor who arrives after the game started (and never took a seat)
   // can't join — the lobby is gone
-  if (!view && tableState?.started && mySeat == null && !isHost) {
+  if (!view && tableState?.started && mySeat == null && !isCreator) {
     return (
       <FeltGate>
         This table is already in progress.
@@ -116,10 +134,11 @@ export default function TablePage() {
           name={tableName}
           mySeat={mySeat}
           isHost={isHost}
+          people={people}
+          meId={me?.id ?? null}
           messages={messages}
           onSit={sitAt}
           onSitHere={moveTo}
-          onTakeSeat={takeSeat}
           onStand={stand}
           onAddBot={addBot}
           onRemoveBot={removeBot}
@@ -133,7 +152,7 @@ export default function TablePage() {
             <TableHeader
               view={view}
               name={tableName}
-              onRename={setName}
+              onRename={isHost ? setName : undefined}
               canReplay={canReplay}
               onReplay={() => setReplayOpen(true)}
             />
@@ -147,7 +166,7 @@ export default function TablePage() {
               onBid={bid}
               onPlay={playCard}
             />
-            <Plates view={view} />
+            <Plates view={view} people={people} />
           </div>
 
           <div className="side">

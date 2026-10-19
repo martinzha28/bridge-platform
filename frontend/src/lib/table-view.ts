@@ -1,4 +1,4 @@
-import type { PlayerView, Seat } from "./protocol";
+import type { Person, PlayerView, Seat } from "./protocol";
 import { SEATS } from "./protocol";
 import { nextSeat, seatVulnerable } from "./view";
 import type { TableStatus } from "@/hooks/useTable";
@@ -18,6 +18,17 @@ export function screenSlot(
 export function plateOrder(mySeat: Seat): Seat[] {
   const i = SEATS.indexOf(mySeat);
   return [...SEATS.slice(i), ...SEATS.slice(0, i)];
+}
+
+/** Seated people keyed by seat; watchers are left out. */
+export function peopleBySeat(
+  people: Person[] | undefined,
+): Partial<Record<Seat, Person>> {
+  const out: Partial<Record<Seat, Person>> = {};
+  for (const p of people ?? []) {
+    if (p.seat) out[p.seat] = p;
+  }
+  return out;
 }
 
 const VUL_ON = "var(--red)";

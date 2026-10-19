@@ -6,9 +6,11 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.editable {
   cursor: text;
 }
-.name:hover {
+.editable:hover {
   text-decoration: underline dotted;
   text-underline-offset: 3px;
 }

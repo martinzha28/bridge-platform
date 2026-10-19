@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   ChatMessage,
+  JoinedPayload,
+  JoinIdentity,
+  Person,
   PlayedCard,
   PlayerView,
   Seat,
@@ -42,8 +45,11 @@ const SEAT_LETTER: Record<Seat, "N" | "E" | "S" | "W"> = {
 export interface UseTableOptions {
   tableId: string;
   config: TableConfig;
-  /** The creator — applies the seat plan and drives board advancement. */
-  isHost: boolean;
+  /** This browser created the table (has its config): it lays out the
+   *  seat plan. Hosting itself is decided by the server. */
+  isCreator: boolean;
+  /** Guest nickname + id sent with join_table; read when the socket opens. */
+  join: JoinIdentity;
 }
 
 export interface UseTable {
@@ -58,12 +64,17 @@ export interface UseTable {
   lastCompletedTrick: PlayedCard[];
   /** Where this client is seated, or null if standing in the lobby. */
   mySeat: Seat | null;
+  /** The server says this client hosts: start, bots, rename. */
+  isHost: boolean;
+  /** This client as the table knows it (name may carry a suffix). */
+  me: Person | null;
+  /** Everyone connected, seated or watching, in join order. */
+  people: Person[];
   messages: ChatMessage[];
   bid: (call: string) => void;
   playCard: (card: string) => void;
   sitAt: (dir: Seat) => void;
   stand: () => void;
-  takeSeat: (dir: Seat) => void;
   addBot: (dir: Seat) => void;
   removeBot: (dir: Seat) => void;
   moveTo: (dir: Seat) => void;
@@ -72,7 +83,7 @@ export interface UseTable {
   startGame: () => void;
 }
 
-export function useTable({ tableId, config, isHost }: UseTableOptions): UseTable {
+export function useTable({ tableId, config, isCreator, join }: UseTableOptions): UseTable {
   const [view, setView] = useState<PlayerView | null>(null);
   const [tableState, setTableState] = useState<TableState | null>(null);
   const [status, setStatus] = useState<TableStatus>("connecting");
@@ -83,6 +94,7 @@ export function useTable({ tableId, config, isHost }: UseTableOptions): UseTable
   const [lastCompletedTrick, setLastCompletedTrick] = useState<PlayedCard[]>([]);
   const [mySeat, setMySeat] = useState<Seat | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [me, setMe] = useState<Person | null>(null);
 
   const socketRef = useRef<TableSocket | null>(null);
   const nextBoardTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -95,6 +107,14 @@ export function useTable({ tableId, config, isHost }: UseTableOptions): UseTable
   const mySeatRef = useRef<Seat | null>(null);
   const configRef = useRef(config);
   configRef.current = config;
+  const joinRef = useRef(join);
+  joinRef.current = join;
+  const people = tableState?.people ?? [];
+  const isHost = me != null && people.some((p) => p.id === me.id && p.host);
+  // read when a board completes, so a host handed over mid-session
+  // picks up dealing the next board
+  const hostRef = useRef(isHost);
+  hostRef.current = isHost;
 
   useEffect(() => {
     function endHold() {
@@ -119,7 +139,7 @@ export function useTable({ tableId, config, isHost }: UseTableOptions): UseTable
         setHistory((h) => {
           const boards = h.length + 1;
           const limit = configRef.current.boards;
-          if (isHost && (limit == null || boards < limit)) {
+          if (hostRef.current && (limit == null || boards < limit)) {
             nextBoardTimer.current = setTimeout(() => {
               nextBoardTimer.current = null;
               socket.send({ type: "start" });
@@ -142,7 +162,7 @@ export function useTable({ tableId, config, isHost }: UseTableOptions): UseTable
     // bots. It never auto-starts — the host clicks Start — so a friend
     // always has a lobby to join from, even on an all-bot table.
     function reconcileHostSeats(state: TableState) {
-      if (!isHost || state.started) return;
+      if (!isCreator || state.started) return;
       const plan = seatPlan(configRef.current);
       const want = new Map<Seat, "you" | "bot">();
       if (plan.you) want.set(plan.you, "you");
@@ -171,12 +191,13 @@ export function useTable({ tableId, config, isHost }: UseTableOptions): UseTable
         if (disposed) return;
         setError(null);
         setStatus("connecting");
-        socket.send({ type: "join_table", tableID: tableId });
+        socket.send({ type: "join_table", tableID: tableId, ...joinRef.current });
       },
       onMessage(msg: ServerMessage) {
         if (disposed) return;
         switch (msg.type) {
           case "table_joined":
+            setMe((msg.payload as JoinedPayload).you);
             break;
           case "seated": {
             // sit_bot also acks with "seated" (bot:"true") — that's not us
@@ -249,6 +270,7 @@ export function useTable({ tableId, config, isHost }: UseTableOptions): UseTable
       startRequested.current = false;
       mySeatRef.current = null;
       setMySeat(null);
+      setMe(null);
       setMessages([]);
       setPaused(false);
       setLastCompletedTrick([]);
@@ -260,7 +282,7 @@ export function useTable({ tableId, config, isHost }: UseTableOptions): UseTable
       socket.close();
       socketRef.current = null;
     };
-  }, [tableId, isHost]);
+  }, [tableId, isCreator]);
 
   const bid = useCallback((call: string) => {
     socketRef.current?.send({ type: "bid", call });
@@ -276,15 +298,6 @@ export function useTable({ tableId, config, isHost }: UseTableOptions): UseTable
   }, []);
   const stand = useCallback(() => {
     socketRef.current?.send({ type: "stand" });
-  }, []);
-  // claim a seat a bot currently holds (lobby only — the backend
-  // refuses remove_bot once a game is running)
-  const takeSeat = useCallback((dir: Seat) => {
-    if (mySeatRef.current && mySeatRef.current !== dir) {
-      socketRef.current?.send({ type: "stand" });
-    }
-    socketRef.current?.send({ type: "remove_bot", direction: SEAT_LETTER[dir] });
-    socketRef.current?.send({ type: "sit", direction: SEAT_LETTER[dir] });
   }, []);
   const addBot = useCallback((dir: Seat) => {
     socketRef.current?.send({ type: "sit_bot", direction: SEAT_LETTER[dir], difficulty: 1 });
@@ -328,12 +341,14 @@ export function useTable({ tableId, config, isHost }: UseTableOptions): UseTable
     paused,
     lastCompletedTrick,
     mySeat,
+    isHost,
+    me,
+    people,
     messages,
     bid,
     playCard,
     sitAt,
     stand,
-    takeSeat,
     addBot,
     removeBot,
     moveTo,

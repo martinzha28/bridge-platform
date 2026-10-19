@@ -49,10 +49,17 @@ export interface PlayerView {
   legalCards?: string[];
 }
 
+/** Who a guest says they are on create/join. Ignored for logged-in users,
+ *  whose username comes from their account. */
+export interface JoinIdentity {
+  displayName?: string;
+  guestID?: string;
+}
+
 // Client -> server
 export type ClientMessage =
-  | { type: "create_table" }
-  | { type: "join_table"; tableID: string }
+  | ({ type: "create_table" } & JoinIdentity)
+  | ({ type: "join_table"; tableID: string } & JoinIdentity)
   | { type: "sit"; direction: "N" | "E" | "S" | "W" }
   | { type: "sit_bot"; direction: "N" | "E" | "S" | "W"; difficulty: number }
   | { type: "stand" }
@@ -67,10 +74,27 @@ export type ClientMessage =
 /** One line of ephemeral table chat. */
 export interface ChatMessage {
   id: number;
-  sender: string; // seat name ("West") or "Observer"
+  kind: "user" | "system"; // system = "<name> joined" / "<name> left"
+  sender: string; // display name; "" for system lines
+  guest: boolean;
   seat: Seat | ""; // "" for observers
   text: string;
   at: number; // unix millis
+}
+
+/** A client connected to the table — seated or watching. */
+export interface Person {
+  id: number; // per-table, in join order
+  name: string; // unique at the table (may carry a " (2)" suffix)
+  guest: boolean;
+  seat: Seat | ""; // "" while watching
+  host: boolean; // may start, add/remove bots, rename
+}
+
+/** Payload of table_created / table_joined. */
+export interface JoinedPayload {
+  tableID: string;
+  you: Person;
 }
 
 export type SeatOccupant = "human" | "bot" | "";
@@ -81,6 +105,7 @@ export interface TableState {
   name: string;
   description: string;
   seats: Record<Seat, SeatOccupant>;
+  people: Person[]; // connected clients, join order
   started: boolean;
 }
 

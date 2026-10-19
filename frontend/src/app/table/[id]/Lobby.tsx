@@ -4,13 +4,20 @@ import Panel from "@/components/Panel";
 import Button from "@/components/Button";
 import Card from "@/components/Card";
 import ChatPanel from "@/components/ChatPanel";
-import { SEATS, type ChatMessage, type Seat, type TableState } from "@/lib/protocol";
+import {
+  SEATS,
+  type ChatMessage,
+  type Person,
+  type Seat,
+  type TableState,
+} from "@/lib/protocol";
 import { SEAT_LETTER } from "@/lib/view";
-import { plateOrder, screenSlot } from "@/lib/table-view";
+import { peopleBySeat, plateOrder, screenSlot } from "@/lib/table-view";
 import { cx } from "@/lib/cx";
 import EditableName from "./EditableName";
 import SeatsPanel from "./SeatsPanel";
 import InvitePanel from "./InvitePanel";
+import PeoplePanel from "./PeoplePanel";
 import styles from "./Lobby.module.css";
 import felt from "@/components/felt.module.css";
 import plates from "./Plates.module.css";
@@ -21,10 +28,11 @@ export default function Lobby({
   name,
   mySeat,
   isHost,
+  people,
+  meId,
   messages,
   onSit,
   onSitHere,
-  onTakeSeat,
   onStand,
   onAddBot,
   onRemoveBot,
@@ -37,10 +45,11 @@ export default function Lobby({
   name: string;
   mySeat: Seat | null;
   isHost: boolean;
+  people: Person[];
+  meId: number | null;
   messages: ChatMessage[];
   onSit: (dir: Seat) => void;
   onSitHere: (dir: Seat) => void;
-  onTakeSeat: (dir: Seat) => void;
   onStand: () => void;
   onAddBot: (dir: Seat) => void;
   onRemoveBot: (dir: Seat) => void;
@@ -49,11 +58,19 @@ export default function Lobby({
   onChat: (text: string) => void;
 }) {
   const feltSeat = mySeat ?? "South";
+  const seated = peopleBySeat(people);
 
   function occupant(seat: Seat): string {
     if (mySeat === seat) return "You";
     const who = tableState.seats[seat];
-    return who === "bot" ? "Bot" : who === "human" ? "Player" : "Open";
+    if (who === "bot") return "Bot";
+    if (who === "human") return seated[seat]?.name ?? "Player";
+    return "Open";
+  }
+
+  function sub(seat: Seat): string {
+    if (tableState.seats[seat] === "") return "waiting";
+    return seated[seat]?.guest ? "guest" : "";
   }
 
   return (
@@ -62,7 +79,7 @@ export default function Lobby({
         <Panel>
           <div className={styles.header}>
             <div className={styles.chip}>–</div>
-            <EditableName name={name} onRename={onRename} />
+            <EditableName name={name} onRename={isHost ? onRename : undefined} />
             <Button href="/" size="sm">
               Leave
             </Button>
@@ -101,9 +118,7 @@ export default function Lobby({
               <span className={plates.st}>{SEAT_LETTER[seat]}</span>
               <div>
                 <b>{occupant(seat)}</b>
-                <div className={plates.ck}>
-                  {tableState.seats[seat] === "" ? "waiting" : ""}
-                </div>
+                <div className={plates.ck}>{sub(seat)}</div>
               </div>
             </div>
           ))}
@@ -115,15 +130,17 @@ export default function Lobby({
           tableState={tableState}
           mySeat={mySeat}
           isHost={isHost}
+          names={seated}
           onSit={onSit}
           onSitHere={onSitHere}
-          onTakeSeat={onTakeSeat}
+          hostName={people.find((p) => p.host)?.name ?? null}
           onStand={onStand}
           onAddBot={onAddBot}
           onRemoveBot={onRemoveBot}
           onStart={onStart}
         />
         <InvitePanel tableId={tableId} description={tableState.description} />
+        <PeoplePanel people={people} meId={meId} />
         <ChatPanel messages={messages} onSend={onChat} />
       </div>
     </>

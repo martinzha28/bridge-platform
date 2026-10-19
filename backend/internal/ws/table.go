@@ -27,13 +27,17 @@ type Table struct {
 	// within leaveGrace cancels them (see members.go).
 	pendingLeaves map[string]*time.Timer
 	leaveGrace    time.Duration
-	reapTimer     *time.Timer
-	gameRepo      *repository.GameRepository
-	persisted     bool
-	boardNum      int
-	closed        bool
-	chatLog       []ChatMessageView
-	chatSeq       int64
+	// hostID is the identity of the client allowed to start, add/remove
+	// bots and rename; "" when nobody holds it (see members.go).
+	hostID    string
+	seatedAt  map[game.Direction]time.Time // when each human took their seat
+	reapTimer *time.Timer
+	gameRepo  *repository.GameRepository
+	persisted bool
+	boardNum  int
+	closed    bool
+	chatLog   []ChatMessageView
+	chatSeq   int64
 }
 
 func NewTable(id string, gameRepo *repository.GameRepository) *Table {
@@ -43,6 +47,7 @@ func NewTable(id string, gameRepo *repository.GameRepository) *Table {
 		players:       make(map[game.Direction]Player),
 		observers:     make(map[*Client]*member),
 		pendingLeaves: make(map[string]*time.Timer),
+		seatedAt:      make(map[game.Direction]time.Time),
 		leaveGrace:    defaultLeaveGrace,
 		gameRepo:      gameRepo,
 		boardNum:      1,
@@ -74,6 +79,12 @@ func (t *Table) Sit(p Player, dir game.Direction) error {
 	}
 
 	t.players[dir] = p
+	if c, ok := p.(*Client); ok {
+		t.seatedAt[dir] = time.Now()
+		if t.hostID == "" && c.identity != "" {
+			t.setHost(c)
+		}
+	}
 	t.broadcastTableState()
 	return nil
 }
@@ -221,6 +232,7 @@ func (t *Table) RemovePlayer(p Player) {
 	for dir, player := range t.players {
 		if player == p {
 			delete(t.players, dir)
+			delete(t.seatedAt, dir)
 			break
 		}
 	}

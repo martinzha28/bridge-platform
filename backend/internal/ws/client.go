@@ -169,6 +169,9 @@ func (c *Client) handleMessage(msg ClientMessage) {
 			c.sendError("invalid direction: " + msg.Direction)
 			return
 		}
+		if !c.requireHost() {
+			return
+		}
 		difficulty, _ := bot.ParseDifficulty(msg.Difficulty)
 		if err := c.table.SitBot(dir, difficulty); err != nil {
 			c.sendError(err.Error())
@@ -202,6 +205,9 @@ func (c *Client) handleMessage(msg ClientMessage) {
 			c.sendError("invalid direction: " + msg.Direction)
 			return
 		}
+		if !c.requireHost() {
+			return
+		}
 		if err := c.table.RemoveBot(dir); err != nil {
 			c.sendError(err.Error())
 			return
@@ -212,6 +218,9 @@ func (c *Client) handleMessage(msg ClientMessage) {
 			c.sendError("join a table first")
 			return
 		}
+		if !c.requireHost() {
+			return
+		}
 		c.table.SetName(msg.Name)
 
 	case MsgSetDescription:
@@ -219,11 +228,17 @@ func (c *Client) handleMessage(msg ClientMessage) {
 			c.sendError("join a table first")
 			return
 		}
+		if !c.requireHost() {
+			return
+		}
 		c.table.SetDescription(msg.Description)
 
 	case MsgStart:
 		if c.table == nil || !c.seated {
 			c.sendError("not seated at a table")
+			return
+		}
+		if !c.requireHost() {
 			return
 		}
 		if err := c.table.Start(msg.Seed); err != nil {
@@ -271,6 +286,15 @@ func (c *Client) handleMessage(msg ClientMessage) {
 	default:
 		c.sendError("unknown message type: " + msg.Type)
 	}
+}
+
+// requireHost reports whether c hosts its table, sending an error if not.
+func (c *Client) requireHost() bool {
+	if c.table.IsHost(c) {
+		return true
+	}
+	c.sendError("only the host can do that")
+	return false
 }
 
 func (c *Client) Send(data []byte) {

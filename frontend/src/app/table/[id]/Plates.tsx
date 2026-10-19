@@ -1,17 +1,35 @@
 import { cx } from "@/lib/cx";
 import { SEAT_LETTER } from "@/lib/view";
-import { plateOrder } from "@/lib/table-view";
-import type { PlayerView, Seat } from "@/lib/protocol";
+import { peopleBySeat, plateOrder } from "@/lib/table-view";
+import type { Person, PlayerView, Seat } from "@/lib/protocol";
 import styles from "./Plates.module.css";
 
-export default function Plates({ view }: { view: PlayerView | null }) {
+export default function Plates({
+  view,
+  people,
+}: {
+  view: PlayerView | null;
+  people: Person[];
+}) {
   const mySeat: Seat = view?.seat ?? "South";
+  const seated = peopleBySeat(people);
   return (
     <div className={styles.plates}>
       {plateOrder(mySeat).map((seat) => {
         const me = seat === mySeat;
-        const label = me ? "You" : `Bot ${SEAT_LETTER[seat]}`;
-        const sub = view?.dummy === seat ? "dummy" : me ? "you" : "bot · easy";
+        // a seat with no connected person is a bot (seats can't sit empty mid-game)
+        const human = seated[seat];
+        const label = me ? "You" : human ? human.name : "Bot";
+        const sub =
+          view?.dummy === seat
+            ? "dummy"
+            : me
+              ? "you"
+              : human
+                ? human.guest
+                  ? "guest"
+                  : "player"
+                : "bot · easy";
         return (
           <div
             key={seat}

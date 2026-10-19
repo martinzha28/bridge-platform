@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import Panel from "@/components/Panel";
 import Button from "@/components/Button";
 import type { ChatMessage } from "@/lib/protocol";
+import { SEAT_LETTER } from "@/lib/view";
+import { cx } from "@/lib/cx";
 import styles from "./ChatPanel.module.css";
 
 /** Ephemeral table chat: recent scrollback plus a send box. Open to
@@ -37,12 +39,23 @@ export default function ChatPanel({
         {messages.length === 0 ? (
           <p className={styles.empty}>No messages yet.</p>
         ) : (
-          messages.map((m) => (
-            <p key={m.id} className={styles.row}>
-              <b className={styles.from}>{m.sender}</b>
-              <span>{m.text}</span>
-            </p>
-          ))
+          messages.map((m) =>
+            m.kind === "system" ? (
+              <p key={m.id} className={cx(styles.row, styles.system)}>
+                {m.text}
+              </p>
+            ) : (
+              <p key={m.id} className={styles.row}>
+                <b className={styles.from}>
+                  {m.sender}
+                  {m.seat && (
+                    <span className={styles.seat}> ({SEAT_LETTER[m.seat]})</span>
+                  )}
+                </b>
+                <span>{m.text}</span>
+              </p>
+            ),
+          )
         )}
       </div>
 
